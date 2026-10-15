@@ -46,6 +46,12 @@ EN = {
     "Cerrar": "Close",
     "♥ Apoyar el proyecto": "♥ Support the project",
     "Página del proyecto": "Project page",
+    "Hay un trabajo en marcha. El idioma se aplicará la próxima vez que abras la aplicación.":
+        "A job is running. The language will apply the next time you open the application.",
+    "Para aplicar el idioma hay que reiniciar la aplicación. ¿Reiniciar ahora?":
+        "The application must restart to apply the language. Restart now?",
+    "No se pudo reiniciar sola. Ciérrala y ábrela de nuevo para aplicar el idioma.":
+        "It could not restart by itself. Close it and open it again to apply the language.",
     "Reportar un problema": "Report a problem",
     "Dar opinión": "Give feedback",
     "Describe qué pasó (opcional):": "Describe what happened (optional):",

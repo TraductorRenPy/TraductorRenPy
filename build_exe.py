@@ -37,6 +37,8 @@ def main() -> None:
     icon = ROOT / "assets" / "icon.ico"
     if icon.is_file():
         cmd += ["--icon", str(icon)]
+        # También dentro del .exe: la ventana usa este icono en la barra de título y la barra de tareas.
+        cmd += ["--add-data", f"{icon}{os.pathsep}assets"]
     for mod in HIDDEN:
         cmd += ["--hidden-import", mod]
     cmd.append(str(ROOT / "main.py"))

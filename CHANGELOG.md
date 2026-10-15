@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.1
+
+- Changing the interface language now offers to restart the application by itself (it waits if a job is running).
+- New window and `.exe` icon (a white "T" on a blue tile with a text strip, with sizes for every screen scale).
+  The window no longer shows the default Tk feather.
+- "Support the project" now opens the donation form directly instead of the full Ko-fi page.
+- "Give feedback" button, linked to the repository Discussions.
+
 ## 1.0.0
 
 First public release.

@@ -15,8 +15,8 @@ REPO_URL = "https://github.com/TraductorRenPy/TraductorRenPy"
 
 # Formulario de opiniones (p. ej. un Google Forms o GitHub Discussions). Mientras esté
 # vacío, el botón «Dar opinión» no aparece. «Reportar un problema» usa REPO_URL.
-FEEDBACK_URL = ""
+FEEDBACK_URL = "https://github.com/TraductorRenPy/TraductorRenPy/discussions"
 
 # Enlace de donaciones (p. ej. "https://www.paypal.com/donate/?hosted_button_id=XXXX"
 # o "https://paypal.me/tu-usuario"). Es un enlace público, no una clave.
-DONATE_URL = "https://ko-fi.com/traductorrenpy"
+DONATE_URL = "https://ko-fi.com/traductorrenpy/?hidefeed=true&widget=true&embed=true&preview=true"

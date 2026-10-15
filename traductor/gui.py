@@ -1,6 +1,8 @@
 """Ventana principal (tkinter): guía paso a paso y modo automático."""
 
 import queue
+import subprocess
+import sys
 import threading
 import time
 import tkinter as tk
@@ -131,6 +133,7 @@ class App(tk.Tk):
         self.ui_setting = cfg.get("ui_language", "auto")
         i18n.set_language(i18n.resolve(self.ui_setting))
         self.title(f"TraductorRenPy {__version__}")
+        self._set_window_icon()
         self.geometry("1100x940")
         self.minsize(960, 700)
 
@@ -428,6 +431,14 @@ class App(tk.Tk):
             ttk.Button(row, text=tr("♥ Apoyar el proyecto"), command=self.open_donate).pack(side="left", padx=4)
         ttk.Button(win, text=tr("Cerrar"), command=win.destroy).pack(pady=(4, 16))
 
+    def _set_window_icon(self):
+        """Icono propio en la barra de título y de tareas (si no, Tk pone su pluma)."""
+        icon = settings.RESOURCE_DIR / "assets" / "icon.ico"
+        try:
+            self.iconbitmap(default=str(icon))
+        except tk.TclError:
+            pass  # sin icono o sistema sin .ico: se queda el de Tk
+
     def open_donate(self):
         if about.DONATE_URL:
             webbrowser.open(about.DONATE_URL)
@@ -520,10 +531,45 @@ class App(tk.Tk):
         code = next((c for c, label in UI_CHOICES if label == self.ui_var.get()), "auto")
         self.ui_setting = code
         self._save_settings()
-        messagebox.showinfo(
-            "TraductorRenPy",
-            "Reinicia la aplicación para aplicar el idioma.\nRestart the application to apply the language.",
-        )
+        previous = i18n.current()
+        i18n.set_language(i18n.resolve(code))  # el aviso ya sale en el idioma elegido
+        restart = False
+        try:
+            if self.busy:
+                messagebox.showinfo(
+                    "TraductorRenPy",
+                    tr("Hay un trabajo en marcha. El idioma se aplicará la próxima vez que abras la aplicación."),
+                )
+            else:
+                restart = messagebox.askyesno(
+                    "TraductorRenPy", tr("Para aplicar el idioma hay que reiniciar la aplicación. ¿Reiniciar ahora?")
+                )
+        finally:
+            if not restart:
+                i18n.set_language(previous)  # la ventana sigue en el idioma anterior hasta reiniciar
+        if restart:
+            self.restart_app()
+
+    @staticmethod
+    def restart_command() -> list:
+        """Comando que vuelve a abrir la aplicación (el .exe, o main.py en desarrollo)."""
+        if settings.FROZEN:
+            return [sys.executable]
+        return [sys.executable, str(settings.PROJECT_DIR / "main.py")]
+
+    def restart_app(self):
+        """Abre otra copia de la aplicación y cierra esta. Los ajustes ya están guardados."""
+        flags = 0
+        if sys.platform == "win32":
+            flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+        try:
+            subprocess.Popen(self.restart_command(), close_fds=True, creationflags=flags)
+        except OSError:
+            messagebox.showwarning(
+                "TraductorRenPy", tr("No se pudo reiniciar sola. Ciérrala y ábrela de nuevo para aplicar el idioma.")
+            )
+            return
+        self.destroy()
 
     # --- ejecución en segundo plano --------------------------------------
 

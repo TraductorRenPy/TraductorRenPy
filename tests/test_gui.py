@@ -90,6 +90,44 @@ class GuiSmokeTests(unittest.TestCase):
             app2.open_report()
             app2.update()
 
+    def test_language_change_restarts_the_app_only_when_confirmed(self):
+        app = self.make_app("es")
+        app.ui_var.set("English")
+        with mock.patch("tkinter.messagebox.askyesno", return_value=False) as ask, \
+                mock.patch("subprocess.Popen") as popen:
+            app._ui_language_changed()
+        ask.assert_called_once()
+        popen.assert_not_called()
+        self.assertEqual(i18n.current(), "es")  # sigue en el idioma anterior hasta reiniciar
+        self.assertEqual(settings.load()["ui_language"], "en")  # pero la elección queda guardada
+
+        with mock.patch("tkinter.messagebox.askyesno", return_value=True), \
+                mock.patch("subprocess.Popen") as popen:
+            app._ui_language_changed()
+        popen.assert_called_once()
+        self.assertEqual(popen.call_args.args[0], app.restart_command())
+
+    def test_language_change_does_not_restart_during_a_job(self):
+        app = self.make_app("es")
+        app.busy = True
+        app.ui_var.set("English")
+        with mock.patch("tkinter.messagebox.showinfo") as info, \
+                mock.patch("tkinter.messagebox.askyesno") as ask, \
+                mock.patch("subprocess.Popen") as popen:
+            app._ui_language_changed()
+        info.assert_called_once()
+        ask.assert_not_called()
+        popen.assert_not_called()
+        app.busy = False
+
+    def test_restart_command(self):
+        from traductor.gui import App
+        with mock.patch.object(settings, "FROZEN", True):
+            self.assertEqual(App.restart_command(), [__import__("sys").executable])
+        with mock.patch.object(settings, "FROZEN", False):
+            cmd = App.restart_command()
+        self.assertTrue(cmd[1].endswith("main.py"))
+
     def test_target_language_selector(self):
         app = self.make_app("es")
         self.assertEqual(app._language(), "spanish")

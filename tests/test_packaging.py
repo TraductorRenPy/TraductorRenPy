@@ -23,6 +23,11 @@ class PackagingTests(unittest.TestCase):
         self.assertEqual(decompile.DEFAULT_LOCATIONS[0], settings.RESOURCE_DIR / "vendor" / "unrpyc")
         self.assertIsNotNone(decompile.find_unrpyc(""), "vendor/unrpyc debe venir con el proyecto")
 
+    def test_window_icon_ships_with_the_app(self):
+        icon = settings.RESOURCE_DIR / "assets" / "icon.ico"
+        self.assertTrue(icon.is_file(), "assets/icon.ico debe existir: la ventana y el .exe lo usan")
+        self.assertEqual(icon.read_bytes()[:4], b"\x00\x00\x01\x00")  # cabecera de un .ico válido
+
     def test_main_unrpyc_run_flag_runs_the_script(self):
         with tempfile.TemporaryDirectory() as d:
             script = Path(d) / "fake_unrpyc.py"
