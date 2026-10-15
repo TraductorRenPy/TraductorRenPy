@@ -77,6 +77,19 @@ Se pide a Gemini y Grok traducir sin censurar, pero el servicio puede bloquear
 respuestas: esas líneas quedan sin traducir. Microsoft Translator no filtra, aunque
 es más literal. Aplica a juegos con personajes adultos.
 
+LETRAS QUE NO SE VEN (ñ, ¿, acentos)
+Algunos juegos usan fuentes decorativas que no dibujan bien el español: huecos
+donde va la ñ o la ¿. Al instalar, la app lo detecta y te propone usar otra
+fuente solo con ese idioma (crea zz_fuentes_<idioma>.rpy; se deshace borrando ese
+archivo). También está el botón «Fuentes del juego…».
+
+JUEGOS QUE YA TIENEN UNA TRADUCCIÓN
+Escribe el idioma con el mismo nombre que usa esa traducción: en Ren'Py
+«Spanish» y «spanish» son idiomas distintos. La app respeta lo ya traducido
+(solo corrige el título del juego) y traduce lo que falta: p. ej. mensajes del
+celular o fichas de personajes que el juego arma por código y la traducción
+original no cubría.
+
 QUÉ TOCA LA APP EN TU JUEGO
 • Escribe la traducción en game/tl/<idioma>/ y crea game/zz_<idioma>.rpy.
 • Antes de escribir, guarda un respaldo en la carpeta de trabajo (subcarpeta
@@ -170,6 +183,19 @@ ADULT CONTENT
 Gemini and Grok are asked to translate without censoring, but the service may
 block answers: those lines stay untranslated. Microsoft Translator does not
 filter, though it is more literal. This applies to games with adult characters.
+
+LETTERS THAT DO NOT SHOW (ñ, ¿, accents)
+Some games use decorative fonts that do not draw the language properly: gaps
+where the ñ or ¿ should be. When installing, the app detects it and offers to use
+another font only with that language (it creates zz_fuentes_<language>.rpy; delete
+that file to undo it). There is also a "Game fonts…" button.
+
+GAMES THAT ALREADY HAVE A TRANSLATION
+Type the language with the same name that translation uses: in Ren'Py
+"Spanish" and "spanish" are different languages. The app respects what is already
+translated (it only corrects the game title) and translates what is missing: e.g.
+phone messages or character sheets that the game builds from code and the original
+translation did not cover.
 
 WHAT THE APP TOUCHES IN YOUR GAME
 • It writes the translation into game/tl/<language>/ and creates game/zz_<language>.rpy.

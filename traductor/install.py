@@ -69,13 +69,18 @@ def _try_apply(lines, idx, original, cache, rel, result, fixed=None) -> None:
 
 
 def process_text(
-    text: str, cache: Cache, rel: str, result: ApplyResult, fixed=None, target: str = "spanish"
+    text: str, cache: Cache, rel: str, result: ApplyResult, fixed=None, target: str = "spanish", fixed_existing=None
 ) -> str:
     """Devuelve el texto del tl con los pendientes reemplazados por la caché.
 
     `fixed` ({texto inglés exacto: traducción obligatoria}) viene del glosario:
     un texto que es exactamente un término (p. ej. el título del juego) se deja
-    como el glosario dice, incluso si ya traía otra traducción."""
+    como el glosario dice, incluso si ya traía otra traducción.
+
+    `fixed_existing` limita esa corrección a las entradas que YA estaban traducidas (por ejemplo, la
+    traducción de otra persona): si se da, solo se corrigen esos términos (el título) y se respeta el
+    resto. Si es None se corrigen todos los de `fixed` (comportamiento anterior)."""
+    existing = fixed if fixed_existing is None else fixed_existing
     lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
     i = 0
     while i < len(lines):
@@ -98,8 +103,8 @@ def process_text(
                     mn = RE_STRING.search(lines[k])
                     if mn and mn.group(1) == old_text and _identical_status(old_text, target) == PENDING:
                         _try_apply(lines, k, old_text, cache, rel, result, fixed)
-                    elif mn and fixed and old_text in fixed and mn.group(1) != fixed[old_text]:
-                        lines[k] = _replace_literal(lines[k], fixed[old_text])
+                    elif mn and existing and old_text in existing and mn.group(1) != existing[old_text]:
+                        lines[k] = _replace_literal(lines[k], existing[old_text])
                         result.glossary_fixed += 1
                     old_idx, old_text = None, None
         elif m.group(2) != "python":
@@ -118,11 +123,11 @@ def process_text(
             for c, s in pairs:
                 orig_stmt = lines[c].strip()[1:].strip()
                 if orig_stmt != lines[s].strip():  # ya traducida
-                    if fixed:
+                    if existing:
                         _, en = _split_statement(orig_stmt)
                         _, current = _split_statement(lines[s])
-                        if en in fixed and current != fixed[en]:
-                            lines[s] = _replace_literal(lines[s], fixed[en])
+                        if en in existing and current != existing[en]:
+                            lines[s] = _replace_literal(lines[s], existing[en])
                             result.glossary_fixed += 1
                     continue
                 _, text_en = _split_statement(orig_stmt)
@@ -134,15 +139,22 @@ def process_text(
     return new_text if new_text.endswith("\n") else new_text + "\n"
 
 
-def apply_cache_to_tl(tl_dir: Path, cache: Cache, glossary=None) -> ApplyResult:
-    """Calcula (sin escribir) los cambios de todos los .rpy de tl_dir."""
+def apply_cache_to_tl(tl_dir: Path, cache: Cache, glossary=None, titles=None) -> ApplyResult:
+    """Calcula (sin escribir) los cambios de todos los .rpy de tl_dir.
+
+    `titles` (títulos del juego): si se da, las entradas que ya venían traducidas solo se corrigen para esos
+    términos; el resto del glosario se aplica únicamente a lo que traduce esta app. Así no se pisan los
+    nombres que otra traducción haya adaptado (Patricio, Felipe...)."""
     result = ApplyResult()
     fixed = {t.src: t.target for t in glossary.terms} if glossary else None
+    fixed_existing = None
+    if fixed is not None and titles is not None:
+        fixed_existing = {src: dst for src, dst in fixed.items() if src in set(titles)}
     for path in sorted(tl_dir.rglob("*.rpy")):
         original = path.read_text(encoding="utf-8-sig", errors="replace")
         rel = path.relative_to(tl_dir).as_posix()
         before = (result.applied, result.glossary_fixed)
-        new_text = process_text(original, cache, rel, result, fixed, tl_dir.name)
+        new_text = process_text(original, cache, rel, result, fixed, tl_dir.name, fixed_existing)
         if (result.applied, result.glossary_fixed) != before:
             result.changes[path] = new_text
     return result

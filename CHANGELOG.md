@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.5
+
+- **Font check** when installing (and a "Game fonts..." button): detects game fonts that do not draw the target
+  language's letters (missing glyphs or empty ones, e.g. n-tilde and the opening question mark) and, with your
+  permission, writes `zz_fuentes_<language>.rpy` to use another font only with that language. Pure Python reader,
+  no extra dependencies.
+- Games that already have a translation: the glossary no longer overwrites names that the other translation
+  adapted. Only the game title is forced on entries that were already translated.
+- Updated Help and tutorials (letters that do not show, games with an existing translation, language names are
+  case-sensitive in Ren'Py).
+
 ## 1.0.4
 
 - New button **"Retry the lines that failed validation"**: it saves a copy of the cache, removes those lines and

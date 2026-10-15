@@ -9,7 +9,7 @@ from traductor import credit, eta, notify, translate
 from traductor.common import Cancelled
 from traductor.engines import Engine, EngineError
 from traductor.engines import base as engines_base
-from traductor.glossary import Glossary
+from traductor.glossary import Glossary, Term
 from traductor.translate import Cache, Unit, run_job
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -258,7 +258,7 @@ class RetryFailedValidationTests(unittest.TestCase):
         tl = root / "game" / "tl" / "spanish"
         tl.mkdir(parents=True)
         (tl / "script.rpy").write_text(TL_RETRY, encoding="utf-8")
-        self.info = SimpleNamespace(root=root, need_collect=False, name="Juego")
+        self.info = SimpleNamespace(root=root, game_dir=root / "game", need_collect=False, name="Juego")
         self.ws = pipeline.Workspace(Path(self.tmp.name) / "ws")
         self.ws.base.mkdir()
         cache = Cache(self.ws.cache_file)
@@ -345,6 +345,42 @@ class HelpAndTutorialTests(unittest.TestCase):
         self.assertEqual(i18n_en.EN["Peticiones simultáneas"], "Simultaneous requests")
         self.assertEqual(i18n_en.EN["Crédito en el juego (opcional)"].split(" (")[0], "Credit in the game")
         self.assertEqual(i18n_en.EN["Avisar al terminar"], "Notify when done")
+
+
+class ExistingTranslationIsRespectedTests(unittest.TestCase):
+    """Glosario sobre traducciones que ya venían hechas por otra persona."""
+
+    TL = (
+        "translate Spanish strings:\n\n"
+        '    old "Patrick"\n    new "Patricio"\n\n'
+        '    old "Godson"\n    new "Ahijado"\n\n'
+        '    old "Thanks, Patrick!"\n    new "Thanks, Patrick!"\n'
+    )
+
+    def run_apply(self, titles):
+        from traductor import install
+
+        with tempfile.TemporaryDirectory() as d:
+            tl = Path(d) / "Spanish"
+            tl.mkdir()
+            (tl / "a.rpy").write_text(self.TL, encoding="utf-8")
+            cache = Cache(Path(d) / "c.json")
+            cache.put("Thanks, Patrick!", "¡Gracias, Patrick!", "fake")
+            glossary = Glossary([Term("Patrick"), Term("Godson")])
+            result = install.apply_cache_to_tl(tl, cache, glossary, titles=titles)
+            return result, result.changes.get(tl / "a.rpy", self.TL)
+
+    def test_only_the_game_title_is_forced_on_entries_already_translated(self):
+        result, text = self.run_apply(titles=["Godson"])
+        self.assertIn('new "Patricio"', text)  # el nombre que adaptó la otra traducción se respeta
+        self.assertIn('new "Godson"', text)  # el título del juego sí se corrige
+        self.assertIn("¡Gracias, Patrick!", text)  # y lo que traduce esta app usa el glosario
+        self.assertEqual(result.glossary_fixed, 1)
+
+    def test_without_titles_the_previous_behavior_is_kept(self):
+        result, text = self.run_apply(titles=None)
+        self.assertIn('new "Patrick"', text)
+        self.assertEqual(result.glossary_fixed, 2)
 
 
 if __name__ == "__main__":

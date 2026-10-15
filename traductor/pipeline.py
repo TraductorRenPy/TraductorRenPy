@@ -326,7 +326,7 @@ def failed_validation_originals(info: GameInfo, ws: Workspace, language: str) ->
     if not tl_dir.is_dir() or not ws.cache_file.is_file():
         return []
     glossary = suggest_glossary(info, ws, language)
-    result = install.apply_cache_to_tl(tl_dir, Cache(ws.cache_file), glossary)
+    result = install.apply_cache_to_tl(tl_dir, Cache(ws.cache_file), glossary, titles=find_game_titles(script_dirs(info, ws)))
     return sorted({f.original for f in result.failed})
 
 
@@ -413,7 +413,7 @@ def validate_translations(info: GameInfo, ws: Workspace, language: str, log: Log
     if not ws.cache_file.is_file():
         raise FileNotFoundError("No hay traducciones todavía (paso 6 o Importar previa).")
     glossary = suggest_glossary(info, ws, language)
-    result = install.apply_cache_to_tl(tl_dir, Cache(ws.cache_file), glossary)
+    result = install.apply_cache_to_tl(tl_dir, Cache(ws.cache_file), glossary, titles=find_game_titles(script_dirs(info, ws)))
     remaining = len(scan_tl(tl_dir).pending) - result.applied
     _write_report(ws, result, remaining, log, dry_run=True)
     return result
@@ -448,7 +448,7 @@ def install_translations(info: GameInfo, ws: Workspace, language: str, log: LogF
 
     glossary = suggest_glossary(info, ws, language)
     cache = Cache(ws.cache_file)
-    result = install.apply_cache_to_tl(tl_dir, cache, glossary)
+    result = install.apply_cache_to_tl(tl_dir, cache, glossary, titles=find_game_titles(script_dirs(info, ws)))
     if credit.strip():
         about = credit_mod.find_about_text(script_dirs(info, ws))
         if about is None:

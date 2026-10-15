@@ -137,6 +137,35 @@ A common combination: translate with an AI and complete what remains with Micros
 This applies to games with adult characters.
 
 
+9 bis. LETTERS THAT DO NOT SHOW (n with tilde, opening marks, accents)
+-----------------------------------------------------------------------
+Some games use decorative fonts made only for English. After translating you see gaps where the n-tilde, the
+opening question mark or an accent should be. Sometimes the letter does not exist in the font and sometimes it
+exists but is empty (this really happens in some games).
+- When installing, the application checks the fonts the game uses and detects those that do not draw the
+  chosen language's letters properly. If it finds any, it shows them with the font it proposes instead and asks
+  for permission.
+- If you accept, it creates game/zz_fuentes_<language>.rpy: only with that language active, the game uses the
+  other font. It does not touch scripts or translations. To undo it, delete that file.
+- The "Game fonts..." button repeats the check whenever you want.
+- The replacement font comes from the ones the game already ships (the best fit) or, if none is good, from
+  DejaVu Sans, which Ren'Py already includes. The look of the letters will change a little.
+- Limits: accents drawn in the wrong place in a font whose letters do exist are not detected, nor are fonts
+  inside an .rpa, nor letters drawn inside images.
+
+
+9 ter. GAMES THAT ALREADY HAVE A TRANSLATION
+--------------------------------------------
+- Type the language with the SAME name that translation uses. In Ren'Py "Spanish" and "spanish" are different
+  languages (check the folder name game/tl/<language>).
+- The application starts from what is already translated and only translates what is missing. It respects the
+  names and terms the other translation adapted; it only corrects the game title, which is never translated.
+- Typical case: phone messages, character sheets and other texts the game builds from code. Ren'Py does not
+  mark them for translation, which is why many translations leave them in the original language. The "Find
+  unmarked texts" step finds them and adds them to zz_extra_strings.rpy so they can be translated.
+- Try a copy of the game first if the existing translation has an unusual structure.
+
+
 10. UNDO
 --------
 Before writing, the application saves a backup in the "respaldos" subfolder of the work folder.

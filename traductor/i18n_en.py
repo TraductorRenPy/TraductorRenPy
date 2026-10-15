@@ -70,6 +70,18 @@ EN = {
     "No se encontró el archivo del tutorial. Está en la carpeta del programa.":
         "The tutorial file was not found. It is in the program folder.",
     "No se pudo abrir el tutorial: {path}": "The tutorial could not be opened: {path}",
+    "Fuentes del juego…": "Game fonts…",
+    "Fuentes del juego": "Game fonts",
+    "Revisar las fuentes del juego": "Check the game fonts",
+    "no dibuja": "does not draw",
+    "Algunas fuentes del juego no dibujan bien las letras de este idioma (se verían huecos donde van):":
+        "Some game fonts do not draw this language's letters properly (there would be gaps where they go):",
+    "¿Usar otra fuente en su lugar, solo con este idioma? Se crea {file} en el juego; se deshace borrando ese archivo.":
+        "Use another font instead, only with this language? {file} is created in the game; delete that file to undo it.",
+    "Fuentes: {n} no dibujan bien este idioma; no se cambió nada.":
+        "Fonts: {n} do not draw this language properly; nothing was changed.",
+    "Fuente {name}: se usará {replacement}.": "Font {name}: {replacement} will be used.",
+    "Reinicia el juego para ver el cambio.": "Restart the game to see the change.",
     "Reportar un problema": "Report a problem",
     "Dar opinión": "Give feedback",
     "Describe qué pasó (opcional):": "Describe what happened (optional):",
@@ -212,6 +224,10 @@ EN = {
 }
 
 LOG_PATTERNS = [
+    # revisión de fuentes
+    ("Fuentes: todas las que usa el juego dibujan bien este idioma.", "Fonts: all the fonts the game uses draw this language properly."),
+    ("Fuentes: ya hay un reemplazo para las fuentes con problemas.", "Fonts: a replacement already exists for the problem fonts."),
+    ("Fuentes: no se pudieron revisar ({reason}).", "Fonts: could not be checked ({reason})."),
     # reintento de las que fallaron la validación
     ("No hay líneas que hayan fallado la validación.", "No lines failed validation."),
     ("Copia de la caché: {path}", "Cache copy: {path}"),

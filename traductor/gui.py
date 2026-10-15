@@ -12,7 +12,7 @@ import webbrowser
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 from typing import Callable, Optional
 
-from . import __version__, about, eta, i18n, languages, notify, pipeline, report, sdk, settings, uitweaks, workflow
+from . import __version__, about, eta, fonts, i18n, languages, notify, pipeline, report, sdk, settings, uitweaks, workflow
 from .common import Cancelled
 from .detect import GameInfo, analyze, find_game_root
 from .engines import ENGINES, EngineError
@@ -225,7 +225,11 @@ class App(tk.Tk):
         retry = ttk.Button(row_a, text=tr("Reintentar las que fallaron la validación"), command=self.step_retry_failed)
         retry.pack(side="right", padx=(6, 0))
         self.step_buttons.append(retry)
-        for text, cmd in [(tr("Ver pendientes"), self.step_pending), (tr("Caja de diálogo…"), self.open_ui_tweaks)]:
+        for text, cmd in [
+            (tr("Ver pendientes"), self.step_pending),
+            (tr("Caja de diálogo…"), self.open_ui_tweaks),
+            (tr("Fuentes del juego…"), self.step_fonts),
+        ]:
             b = ttk.Button(row_b, text=text, command=cmd)
             b.pack(side="right", padx=(6, 0))
             self.step_buttons.append(b)
@@ -888,6 +892,43 @@ class App(tk.Tk):
         self.events.put(("call", lambda: self._show_report(report)))
         self._mark("instalar")
         self.log(tr("Listo. Abre el juego: debe iniciar en {lang}.", lang=languages.label_for(self._snap["language"])))
+        try:
+            self._check_fonts()
+        except Exception as exc:  # la revisión de fuentes nunca debe estropear una instalación que salió bien
+            self.log(f"Fuentes: no se pudieron revisar ({exc}).")
+
+    def _act_fonts(self):
+        self._ensure_info()
+        self._check_fonts()
+
+    def _check_fonts(self):
+        """Busca fuentes del juego que no dibujan bien el idioma y, con permiso, crea el reemplazo."""
+        language = self._snap["language"]
+        game_dir = self.info.game_dir
+        report = fonts.analyze(game_dir, pipeline.script_dirs(self.info, self.ws), language)
+        problems = [p for p in report.problems if not fonts.has_replacement(game_dir, p.name)]
+        if not report.problems:
+            self.log("Fuentes: todas las que usa el juego dibujan bien este idioma.")
+            return
+        if not problems:
+            self.log("Fuentes: ya hay un reemplazo para las fuentes con problemas.")
+            return
+        listing = "\n".join(
+            f"• {p.name}: " + tr("no dibuja") + f" {' '.join(p.chars[:14])}  →  {p.replacement}" for p in problems
+        )
+        question = tr(
+            "Algunas fuentes del juego no dibujan bien las letras de este idioma (se verían huecos donde van):"
+        ) + f"\n\n{listing}\n\n" + tr(
+            "¿Usar otra fuente en su lugar, solo con este idioma? Se crea {file} en el juego; "
+            "se deshace borrando ese archivo.", file=fonts.fix_filename(language)
+        )
+        if not self._ask(lambda: messagebox.askyesno(tr("Fuentes del juego"), question)):
+            self.log(tr("Fuentes: {n} no dibujan bien este idioma; no se cambió nada.", n=len(problems)))
+            return
+        fonts.write_fix(game_dir, language, problems, self.log)
+        for p in problems:
+            self.log(tr("Fuente {name}: se usará {replacement}.", name=p.name, replacement=p.replacement))
+        self.log(tr("Reinicia el juego para ver el cambio."))
 
     # --- un paso con las preguntas de la guía (también lo usa el modo automático) ---
 
@@ -1045,6 +1086,9 @@ class App(tk.Tk):
 
     def step_retry_failed(self):
         self._run("Reintentar las que fallaron la validación", self._act_retry_failed)
+
+    def step_fonts(self):
+        self._run("Revisar las fuentes del juego", self._act_fonts)
 
     def step_validate(self):
         self._run("Revisar las traducciones (sin escribir)", self._act_validate)

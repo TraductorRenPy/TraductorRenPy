@@ -193,6 +193,41 @@ class GuiSmokeTests(unittest.TestCase):
             app.open_tutorial()
         info.assert_called_once()
 
+    def test_font_check_asks_before_writing_and_does_not_repeat(self):
+        from types import SimpleNamespace
+
+        from traductor import fonts
+        from tests.test_fonts import truetype
+
+        app = self.make_app("es")
+        game = Path(self.tmp.name) / "game"
+        game.mkdir()
+        chars = fonts.needed_chars("Spanish")
+        mapping = {ord(c): i + 1 for i, c in enumerate(chars)}
+        sizes = [10] * (len(chars) + 1)
+        sizes[mapping[ord("ñ")]] = 0  # ñ vacía, como Audrey-Bold.otf
+        (game / "Deco.ttf").write_bytes(truetype(mapping, sizes))
+        (game / "options.rpy").write_text('define gui.text_font = "Deco.ttf"\n', encoding="utf-8")
+        app.info = SimpleNamespace(game_dir=game, root=game)
+        app.ws = SimpleNamespace(scripts=Path(self.tmp.name) / "no-hay")
+        app._snap = {"language": "Spanish"}
+        fix = game / fonts.fix_filename("Spanish")
+
+        with mock.patch.object(app, "_ask", return_value=False) as ask:
+            app._check_fonts()
+        ask.assert_called_once()
+        self.assertFalse(fix.exists())  # sin permiso no se escribe nada
+
+        with mock.patch.object(app, "_ask", return_value=True):
+            app._check_fonts()
+        text = fix.read_text(encoding="utf-8-sig")
+        self.assertIn("translate Spanish python:", text)
+        self.assertIn("Deco.ttf", text)
+
+        with mock.patch.object(app, "_ask") as ask:
+            app._check_fonts()  # ya hay reemplazo: no vuelve a preguntar
+        ask.assert_not_called()
+
     def test_target_language_selector(self):
         app = self.make_app("es")
         self.assertEqual(app._language(), "spanish")

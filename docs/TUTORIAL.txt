@@ -136,6 +136,35 @@ Una combinacion habitual: traducir con una IA y completar con Microsoft lo que q
 Esto aplica a juegos con personajes adultos.
 
 
+9 bis. LETRAS QUE NO SE VEN (n con tilde, signos de apertura, acentos)
+----------------------------------------------------------------------
+Algunos juegos usan fuentes decorativas pensadas solo para ingles. Al traducir se ven huecos donde va la
+enie, la apertura de interrogacion o un acento. A veces la letra no existe en la fuente y otras veces existe
+pero esta vacia (pasa de verdad en algunos juegos).
+- Al instalar, la aplicacion revisa las fuentes del juego que se usan y detecta las que no dibujan bien las
+  letras del idioma elegido. Si encuentra alguna, te la muestra con la fuente que propone en su lugar y te
+  pide permiso.
+- Si aceptas, crea game/zz_fuentes_<idioma>.rpy: solo con ese idioma activo, el juego usa la otra fuente.
+  No toca scripts ni traducciones. Para deshacerlo, borra ese archivo.
+- El boton "Fuentes del juego..." repite la revision cuando quieras.
+- La fuente de reemplazo sale de las que ya trae el juego (la que mejor encaja) o, si no hay ninguna buena,
+  de DejaVu Sans, que Ren'Py ya incluye. El aspecto de las letras cambiara un poco.
+- Limites: no se detectan acentos mal colocados en una fuente cuyas letras si existen, ni fuentes que estan
+  dentro de un .rpa, ni letras dibujadas dentro de imagenes.
+
+
+9 ter. JUEGOS QUE YA TIENEN UNA TRADUCCION
+------------------------------------------
+- Escribe el idioma con el MISMO nombre que usa esa traduccion. En Ren'Py "Spanish" y "spanish" son idiomas
+  distintos (revisa el nombre de la carpeta game/tl/<idioma>).
+- La aplicacion parte de lo que ya esta traducido y solo traduce lo que falta. Respeta los nombres y
+  terminos que la otra traduccion haya adaptado; unicamente corrige el titulo del juego, que nunca se traduce.
+- Caso tipico: mensajes del celular, fichas de personajes y otros textos que el juego arma por codigo. Ren'Py
+  no los marca para traducir, y por eso muchas traducciones los dejan en el idioma original. El paso
+  "Buscar textos sin marcar" los encuentra y los agrega a zz_extra_strings.rpy para traducirlos.
+- Prueba primero con una copia del juego si la traduccion existente tiene una estructura poco comun.
+
+
 10. DESHACER
 ------------
 Antes de escribir, la aplicacion guarda un respaldo en la subcarpeta "respaldos" de la carpeta de trabajo.
