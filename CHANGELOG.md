@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.6
+
+- The translation credit is no longer optional: **"Translated with TraductorRenPy"** (in the translation's language)
+  and the project page address are always added at the end of the game's "About" screen. It is skipped only when the
+  game has no "About" screen or it is not translated yet. Installing again never repeats it.
+- Ren'Py language names are case-sensitive ("Spanish" is not "spanish"). If the game already has the language you
+  typed with another capitalization (e.g. a community translation in `tl/Spanish`), the app now uses that exact
+  name and says so in the log, instead of creating a parallel language the game never shows.
+
 ## 1.0.5
 
 - **Font check** when installing (and a "Game fonts..." button): detects game fonts that do not draw the target

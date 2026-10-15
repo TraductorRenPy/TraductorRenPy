@@ -52,7 +52,6 @@ class App(tk.Tk):
         self.batch_var = tk.IntVar(value=cfg["batch_size"])
         self.workers_var = tk.IntVar(value=cfg["workers"])
         self.notify_var = tk.BooleanVar(value=cfg["notify"])
-        self.credit_var = tk.StringVar(value=cfg["credit"])
         self._shown_engine: Optional[str] = None
 
         self.info: Optional[GameInfo] = None
@@ -120,12 +119,6 @@ class App(tk.Tk):
         )
         self.ui_box.pack(side="left", padx=(6, 0))
         self.ui_box.bind("<<ComboboxSelected>>", lambda e: self._ui_language_changed())
-        ttk.Label(cfg, text=tr("Crédito en el juego (opcional)")).grid(row=last + 1, column=0, sticky="w", **pad)
-        ttk.Entry(cfg, textvariable=self.credit_var).grid(row=last + 1, column=1, sticky="ew", **pad)
-        ttk.Label(
-            cfg, text=tr("Se añade al final de «Acerca de» del juego. Déjalo vacío para no añadir nada."),
-            foreground="#666666",
-        ).grid(row=last + 1, column=2, columnspan=2, sticky="w", **pad)
 
         eng = ttk.LabelFrame(
             self, text=tr("Motor de traducción (uno por trabajo; cada persona usa su propia clave, guardada cifrada en este equipo)")
@@ -598,7 +591,6 @@ class App(tk.Tk):
             "engine": self._engine_name(),
             "batch": self._batch_size(),
             "workers": self._workers(),
-            "credit": self.credit_var.get().strip(),
             "has_key": self._has_key(),
         }
 
@@ -714,7 +706,6 @@ class App(tk.Tk):
             "batch_size": self._batch_size(),
             "workers": self._workers(),
             "notify": bool(self.notify_var.get()),
-            "credit": self.credit_var.get().strip(),
             "engines": self.engines_cfg,
         })
 
@@ -766,6 +757,21 @@ class App(tk.Tk):
             self._do_analyze()
         else:
             self.ws = pipeline.make_workspace(self._snap["work"], self.info)
+        self._use_existing_language_name()
+
+    def _use_existing_language_name(self):
+        """Ren'Py distingue mayúsculas: «Spanish» y «spanish» son idiomas distintos. Si el juego ya tiene el
+        idioma con otra capitalización (p. ej. la carpeta tl/Spanish de otra traducción), se usa ese nombre
+        exacto; si no, la traducción nueva quedaría en un idioma aparte que el juego no usa."""
+        typed = self._snap.get("language", "")
+        existing = list(getattr(self.info, "tl_languages", []) or [])
+        if not typed or typed in existing:
+            return
+        exact = next((name for name in existing if name.lower() == typed.lower()), None)
+        if exact:
+            self._snap["language"] = exact
+            self.log(tr("Este juego ya tiene el idioma «{name}»: se usa ese nombre exacto (Ren'Py distingue "
+                        "mayúsculas de minúsculas).", name=exact))
 
     def _ensure_info_sync(self):
         """Como _ensure_info pero en el hilo de la interfaz (el análisis es rápido)."""
@@ -886,7 +892,7 @@ class App(tk.Tk):
     def _act_install(self):
         self._ensure_info()
         pipeline.install_translations(
-            self.info, self.ws, self._snap["language"], self.log, credit=self._snap["credit"]
+            self.info, self.ws, self._snap["language"], self.log
         )
         report = pipeline.detect_pending(self.info, self.ws, self._snap["language"], self.log)
         self.events.put(("call", lambda: self._show_report(report)))

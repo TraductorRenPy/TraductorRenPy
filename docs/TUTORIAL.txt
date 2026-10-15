@@ -78,9 +78,9 @@ donde ibas.
   Si el servicio pide esperar, todas las peticiones esperan juntas.
 - Avisar al terminar: si un trabajo dura mas de 30 segundos, suena, parpadea el boton de la barra de tareas
   y aparece una ventana al terminar o al detenerse. Se puede desactivar.
-- Credito en el juego (opcional): una linea que se agrega al final de la pantalla "Acerca de" del juego,
-  por ejemplo "Traduccion al espanol: tu alias". Vacio por defecto (no agrega nada). Si el juego no tiene
-  pantalla "Acerca de", lo avisa en el registro. Usa el nombre o alias que quieras que sea publico.
+- Credito en "Acerca de": la aplicacion siempre agrega "Traduccion con TraductorRenPy" (en el idioma de la
+  traduccion) y la direccion de su pagina al final de la pantalla "Acerca de" del juego. Solo se omite si el
+  juego no tiene esa pantalla (lo avisa en el registro) o si aun no esta traducida. No hay que configurar nada.
 
 
 6. SI SE DETIENE O HAY ERRORES

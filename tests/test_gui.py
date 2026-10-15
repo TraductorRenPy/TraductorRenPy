@@ -135,13 +135,13 @@ class GuiSmokeTests(unittest.TestCase):
         app.workers_var.set(99)
         self.assertEqual(app._workers(), translate.MAX_WORKERS)
         app.workers_var.set(3)
-        app.credit_var.set("  Traducción: Ana  ")
         app.notify_var.set(False)
         app._save_settings()
         saved = settings.load()
-        self.assertEqual((saved["workers"], saved["credit"], saved["notify"]), (3, "Traducción: Ana", False))
+        self.assertEqual((saved["workers"], saved["notify"]), (3, False))
+        self.assertNotIn("credit", saved)  # el crédito de la app no se configura
         app._take_snapshot()
-        self.assertEqual((app._snap["workers"], app._snap["credit"]), (3, "Traducción: Ana"))
+        self.assertEqual(app._snap["workers"], 3)
 
     def test_notifies_only_for_long_jobs_and_never_when_cancelled(self):
         app = self.make_app("es")
@@ -227,6 +227,21 @@ class GuiSmokeTests(unittest.TestCase):
         with mock.patch.object(app, "_ask") as ask:
             app._check_fonts()  # ya hay reemplazo: no vuelve a preguntar
         ask.assert_not_called()
+
+    def test_existing_language_name_is_used_with_its_exact_capitalization(self):
+        from types import SimpleNamespace
+
+        app = self.make_app("es")
+        root = Path(self.tmp.name) / "juego"
+        app.info = SimpleNamespace(root=root, name="Juego", tl_languages=["Arabic", "Spanish"])
+        app._snap = {"game": str(root), "work": self.tmp.name, "language": "spanish"}
+        with mock.patch("traductor.gui.find_game_root", return_value=root):
+            app._ensure_info()
+        self.assertEqual(app._snap["language"], "Spanish")  # el que ya usa la otra traducción
+        app._snap["language"] = "swedish"  # un idioma que el juego no tiene se respeta tal cual
+        with mock.patch("traductor.gui.find_game_root", return_value=root):
+            app._ensure_info()
+        self.assertEqual(app._snap["language"], "swedish")
 
     def test_target_language_selector(self):
         app = self.make_app("es")

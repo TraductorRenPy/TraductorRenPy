@@ -32,7 +32,6 @@ DEFAULTS = {
     "batch_size": 20,
     "workers": 1,  # peticiones simultáneas (modo avanzado, para cuentas de pago)
     "notify": True,  # avisar al terminar o fallar un trabajo largo
-    "credit": "",  # crédito opcional de la traducción en «Acerca de» del juego
     # Claves y modelos por motor. Solo viven en este archivo local, cifradas.
     "engines": {"grok": {}, "gemini": {}, "microsoft": {}},
 }

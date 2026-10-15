@@ -68,8 +68,8 @@ AJUSTES AVANZADOS
   cuentas de pago; con el nivel gratuito déjalo en 1.
 • Avisar al terminar: sonido, parpadeo en la barra de tareas y una ventana al
   terminar o detenerse un trabajo de más de 30 segundos.
-• Crédito en el juego: una línea opcional al final de «Acerca de» del juego
-  (vacío = no añade nada). Usa el nombre o alias que quieras hacer público.
+• Crédito: siempre se añade «Traducción con TraductorRenPy» y la página del
+  proyecto al final de «Acerca de» del juego (si el juego lo permite).
 • Caja de diálogo…: cambia solo el aspecto de la caja de texto (archivo aparte).
 
 CONTENIDO PARA ADULTOS
@@ -175,8 +175,8 @@ ADVANCED SETTINGS
   paid accounts; on the free tier leave it at 1.
 • Notify when done: sound, taskbar flash and a window when a job longer than
   30 seconds finishes or stops.
-• Credit in the game: an optional line at the end of the game's "About" screen
-  (empty = adds nothing). Use the name or alias you want to make public.
+• Credit: "Translated with TraductorRenPy" and the project page are always added
+  at the end of the game's "About" screen (if the game allows it).
 • Dialogue box…: changes only the look of the text box (separate file).
 
 ADULT CONTENT

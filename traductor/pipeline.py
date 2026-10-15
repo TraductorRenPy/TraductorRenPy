@@ -449,14 +449,14 @@ def install_translations(info: GameInfo, ws: Workspace, language: str, log: LogF
     glossary = suggest_glossary(info, ws, language)
     cache = Cache(ws.cache_file)
     result = install.apply_cache_to_tl(tl_dir, cache, glossary, titles=find_game_titles(script_dirs(info, ws)))
-    if credit.strip():
-        about = credit_mod.find_about_text(script_dirs(info, ws))
-        if about is None:
-            log("Crédito: este juego no define una pantalla «Acerca de»; no se añadió el crédito.")
-        elif credit_mod.add_credit(result.changes, tl_dir, about, credit, cache):
-            log("Crédito añadido al final de «Acerca de».")
-        else:
-            log("Crédito: «Acerca de» aún no está traducido o ya lo tenía; no se cambió.")
+    # El crédito de la app va siempre (más el personal, si hay). Solo se omite si el juego no tiene «Acerca de».
+    about = credit_mod.find_about_text(script_dirs(info, ws))
+    if about is None:
+        log("Crédito: este juego no define una pantalla «Acerca de»; no se añadió el crédito.")
+    elif credit_mod.add_credit(result.changes, tl_dir, about, credit_mod.build_credit(language, credit), cache):
+        log("Crédito añadido al final de «Acerca de».")
+    else:
+        log("Crédito: «Acerca de» aún no está traducido o ya lo tenía; no se cambió.")
     if result.changes:
         install.write_changes(result, tl_dir, ws.backups, f"tl_{language}_antes_de_instalar", log)
     remaining = len(scan_tl(tl_dir).pending)

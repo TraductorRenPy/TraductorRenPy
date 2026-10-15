@@ -182,6 +182,57 @@ class CreditTests(unittest.TestCase):
         self.assertIn('Por \\"Ana\\"', changes[f])
 
 
+class AppCreditTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.dir = Path(self.tmp.name)
+        self.tl = self.dir / "tl"
+        self.tl.mkdir()
+        self.f = self.tl / "options.rpy"
+        self.f.write_text('translate Spanish strings:\n\n    old "One line."\n    new "Una linea."\n', encoding="utf-8")
+        self.cache = Cache(self.dir / "c.json")
+
+    def apply(self, personal=""):
+        changes = {}
+        n = credit.add_credit(changes, self.tl, "One line.", credit.build_credit("Spanish", personal), self.cache)
+        if self.f in changes:
+            self.f.write_text(changes[self.f], encoding="utf-8")
+        return n
+
+    def test_app_line_is_in_the_translation_language(self):
+        self.assertEqual(credit.app_line("Spanish"), "Traducción con TraductorRenPy")
+        self.assertEqual(credit.app_line("spanish_latam"), "Traducción con TraductorRenPy")
+        self.assertEqual(credit.app_line("french"), "Traduit avec TraductorRenPy")
+        self.assertEqual(credit.app_line("swedish"), "Translated with TraductorRenPy")  # idioma fuera de la lista
+
+    def test_the_app_name_and_its_page_are_always_added(self):
+        page = credit.project_page()
+        self.assertTrue(page.startswith("github.com/"))  # sin «https://»
+        self.assertEqual(self.apply(), 1)
+        self.assertIn(
+            'new "Una linea.\\n\\nTraducción con TraductorRenPy\\n' + page + '"', self.f.read_text(encoding="utf-8")
+        )
+
+    def test_without_a_project_page_only_the_name_is_added(self):
+        with mock.patch.object(credit.about, "REPO_URL", ""):
+            self.assertEqual(self.apply(), 1)
+        self.assertIn('new "Una linea.\\n\\nTraducción con TraductorRenPy"', self.f.read_text(encoding="utf-8"))
+
+    def test_installing_again_does_not_repeat_the_credit(self):
+        self.apply()
+        self.assertEqual(self.apply(), 0)
+        self.assertEqual(self.f.read_text(encoding="utf-8").count("Traducción con TraductorRenPy"), 1)
+
+    def test_an_extra_personal_credit_is_still_supported_by_the_module_for_later(self):
+        self.apply("Traducción al español: Ana")
+        self.assertIn("Traducción al español: Ana", self.f.read_text(encoding="utf-8"))
+        self.assertEqual(self.apply("Beto"), 1)  # cambiar el alias reemplaza el anterior
+        text = self.f.read_text(encoding="utf-8")
+        self.assertIn("Beto", text)
+        self.assertNotIn("Ana", text)
+
+
 class NotifyTests(unittest.TestCase):
     def test_alert_never_raises(self):
         class Broken:
@@ -313,9 +364,9 @@ class HelpAndTutorialTests(unittest.TestCase):
         from traductor import help_text
 
         for lang, needles in (
-            ("es", ("Reintentar las que fallaron la validacion", "Peticiones simultaneas", "Credito en el juego",
+            ("es", ("Reintentar las que fallaron la validacion", "Peticiones simultaneas", "Credito en \"Acerca de\"",
                     "Ejecutar de todas formas", "Avisar al terminar")),
-            ("en", ("Retry the lines that failed validation", "Simultaneous requests", "Credit in the game",
+            ("en", ("Retry the lines that failed validation", "Simultaneous requests", "Credit in \"About\"",
                     "Run anyway", "Notify when done")),
         ):
             path = help_text.tutorial_path(lang)
@@ -330,11 +381,11 @@ class HelpAndTutorialTests(unittest.TestCase):
         for text in (HELP_ES, HELP_EN):
             self.assertTrue(len(text) > 1500)
         HELP_ES, HELP_EN = " ".join(HELP_ES.split()), " ".join(HELP_EN.split())  # el texto se parte en renglones
-        for needle in ("Reintentar las que fallaron la validación", "Peticiones simultáneas", "Crédito en el juego",
-                       "Avisar al terminar", "Windows protegió su PC"):
+        for needle in ("Reintentar las que fallaron la validación", "Peticiones simultáneas",
+                       "Traducción con TraductorRenPy", "Avisar al terminar", "Windows protegió su PC"):
             self.assertIn(needle, HELP_ES)
-        for needle in ("Retry the lines that failed validation", "Simultaneous requests", "Credit in the game",
-                       "Notify when done", "Windows protected your PC"):
+        for needle in ("Retry the lines that failed validation", "Simultaneous requests",
+                       "Translated with TraductorRenPy", "Notify when done", "Windows protected your PC"):
             self.assertIn(needle, HELP_EN)
 
     def test_help_button_labels_exist_in_the_interface(self):
@@ -343,7 +394,6 @@ class HelpAndTutorialTests(unittest.TestCase):
         # lo que la ayuda en inglés llama «Retry the lines that failed validation» es el texto real del botón
         self.assertEqual(i18n_en.EN["Reintentar las que fallaron la validación"], "Retry the lines that failed validation")
         self.assertEqual(i18n_en.EN["Peticiones simultáneas"], "Simultaneous requests")
-        self.assertEqual(i18n_en.EN["Crédito en el juego (opcional)"].split(" (")[0], "Credit in the game")
         self.assertEqual(i18n_en.EN["Avisar al terminar"], "Notify when done")
 
 

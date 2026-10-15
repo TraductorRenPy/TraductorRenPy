@@ -52,9 +52,6 @@ EN = {
         "The application must restart to apply the language. Restart now?",
     "No se pudo reiniciar sola. Ciérrala y ábrela de nuevo para aplicar el idioma.":
         "It could not restart by itself. Close it and open it again to apply the language.",
-    "Crédito en el juego (opcional)": "Credit in the game (optional)",
-    "Se añade al final de «Acerca de» del juego. Déjalo vacío para no añadir nada.":
-        "Added at the end of the game's \"About\" screen. Leave empty to add nothing.",
     "Peticiones simultáneas": "Simultaneous requests",
     "Modo avanzado, pensado para cuentas de pago. Con el nivel gratuito déjalo en 1.":
         "Advanced mode, meant for paid accounts. On the free tier leave it at 1.",
@@ -82,6 +79,8 @@ EN = {
         "Fonts: {n} do not draw this language properly; nothing was changed.",
     "Fuente {name}: se usará {replacement}.": "Font {name}: {replacement} will be used.",
     "Reinicia el juego para ver el cambio.": "Restart the game to see the change.",
+    "Este juego ya tiene el idioma «{name}»: se usa ese nombre exacto (Ren'Py distingue mayúsculas de minúsculas).":
+        "This game already has the language \"{name}\": that exact name is used (Ren'Py is case-sensitive).",
     "Reportar un problema": "Report a problem",
     "Dar opinión": "Give feedback",
     "Describe qué pasó (opcional):": "Describe what happened (optional):",

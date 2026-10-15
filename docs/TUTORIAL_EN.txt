@@ -79,9 +79,9 @@ were.
   If the service asks to wait, all requests wait together.
 - Notify when done: if a job lasts more than 30 seconds, it beeps, the taskbar button flashes and a window
   appears when it finishes or stops. It can be turned off.
-- Credit in the game (optional): a line added at the end of the game's "About" screen, for example
-  "Spanish translation: your alias". Empty by default (adds nothing). If the game has no "About" screen, the log
-  says so. Use the name or alias you want to be public.
+- Credit in "About": the application always adds "Translated with TraductorRenPy" (in the translation's
+  language) and the address of its page at the end of the game's "About" screen. It is only skipped if the game
+  has no such screen (the log says so) or it is not translated yet. Nothing to configure.
 
 
 6. IF IT STOPS OR THERE ARE ERRORS
