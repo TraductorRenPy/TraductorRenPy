@@ -2,6 +2,7 @@
 
 import json
 import re
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -12,6 +13,29 @@ from .. import languages
 from ..glossary import Term
 
 _sleep = time.sleep  # sustituible en las pruebas
+
+# Pausa compartida: si el servicio pide esperar (límite por minuto), las demás peticiones simultáneas
+# también esperan, en vez de insistir cada una por su cuenta.
+_cooldown_lock = threading.Lock()
+_cooldown_until = 0.0
+_cooldown_owner = None
+
+
+def _set_cooldown(seconds: float) -> None:
+    global _cooldown_until, _cooldown_owner
+    with _cooldown_lock:
+        until = time.monotonic() + seconds
+        if until > _cooldown_until:
+            _cooldown_until, _cooldown_owner = until, threading.get_ident()
+
+
+def _wait_cooldown() -> None:
+    """Espera si OTRA petición provocó una pausa (quien la provocó ya espera por su cuenta)."""
+    with _cooldown_lock:
+        remaining = _cooldown_until - time.monotonic()
+        mine = _cooldown_owner == threading.get_ident()
+    if remaining > 0 and not mine:
+        _sleep(remaining)
 
 
 class EngineError(Exception):
@@ -91,6 +115,7 @@ def post_json(
         attempt += 1
         req = urllib.request.Request(url, data=body, headers=req_headers, method="POST")
         wait = 2 ** (attempt + 1)
+        _wait_cooldown()
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 return json.loads(resp.read().decode("utf-8"))
@@ -124,6 +149,8 @@ def post_json(
                 wait = min(int(retry_after), 90)
             elif m:
                 wait = min(float(m.group(1)) + 1, 90)
+            if exc.code == 429:
+                _set_cooldown(wait)
         except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
             last = f"error de red: {getattr(exc, 'reason', exc)}"
         except ValueError:

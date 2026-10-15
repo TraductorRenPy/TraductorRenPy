@@ -11,13 +11,14 @@ import webbrowser
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 from typing import Callable, Optional
 
-from . import __version__, about, i18n, languages, pipeline, report, sdk, settings, uitweaks, workflow
+from . import __version__, about, eta, i18n, languages, notify, pipeline, report, sdk, settings, uitweaks, workflow
 from .common import Cancelled
 from .detect import GameInfo, analyze, find_game_root
-from .engines import ENGINES
+from .engines import ENGINES, EngineError
 from .glossary import Glossary, find_characters, suggest_terms
 from .i18n import tr
 from .pending import TlReport
+from . import translate
 from .translate import Cache, apply_cache
 
 HELP_ES = """\
@@ -149,6 +150,9 @@ class App(tk.Tk):
         self.opt_var = tk.StringVar()  # modelo (Grok/Gemini) o región (Microsoft)
         self.url_var = tk.StringVar()
         self.batch_var = tk.IntVar(value=cfg["batch_size"])
+        self.workers_var = tk.IntVar(value=cfg["workers"])
+        self.notify_var = tk.BooleanVar(value=cfg["notify"])
+        self.credit_var = tk.StringVar(value=cfg["credit"])
         self._shown_engine: Optional[str] = None
 
         self.info: Optional[GameInfo] = None
@@ -158,6 +162,7 @@ class App(tk.Tk):
         self.cancel = threading.Event()
         self.busy = False
         self._eta_start: Optional[float] = None
+        self._eta_samples: list = []  # (instante, lotes hechos): para estimar con el ritmo reciente
         self._refresh_job = None
         self._validated = None  # resultado del último "Revisar" (para confirmar la instalación)
 
@@ -215,6 +220,12 @@ class App(tk.Tk):
         )
         self.ui_box.pack(side="left", padx=(6, 0))
         self.ui_box.bind("<<ComboboxSelected>>", lambda e: self._ui_language_changed())
+        ttk.Label(cfg, text=tr("Crédito en el juego (opcional)")).grid(row=last + 1, column=0, sticky="w", **pad)
+        ttk.Entry(cfg, textvariable=self.credit_var).grid(row=last + 1, column=1, sticky="ew", **pad)
+        ttk.Label(
+            cfg, text=tr("Se añade al final de «Acerca de» del juego. Déjalo vacío para no añadir nada."),
+            foreground="#666666",
+        ).grid(row=last + 1, column=2, columnspan=2, sticky="w", **pad)
 
         eng = ttk.LabelFrame(
             self, text=tr("Motor de traducción (uno por trabajo; cada persona usa su propia clave, guardada cifrada en este equipo)")
@@ -238,6 +249,18 @@ class App(tk.Tk):
         ttk.Entry(eng, textvariable=self.url_var).grid(row=1, column=3, sticky="ew", **pad)
         ttk.Label(eng, text=tr("Líneas por lote")).grid(row=0, column=4, sticky="e", **pad)
         ttk.Spinbox(eng, from_=1, to=100, textvariable=self.batch_var, width=5).grid(row=0, column=5, **pad)
+        ttk.Label(eng, text=tr("Peticiones simultáneas")).grid(row=2, column=0, sticky="w", **pad)
+        ttk.Spinbox(eng, from_=1, to=translate.MAX_WORKERS, textvariable=self.workers_var, width=5).grid(
+            row=2, column=1, sticky="w", **pad
+        )
+        ttk.Label(
+            eng,
+            text=tr("Modo avanzado, pensado para cuentas de pago. Con el nivel gratuito déjalo en 1."),
+            foreground="#666666",
+        ).grid(row=2, column=2, columnspan=2, sticky="w", **pad)
+        ttk.Checkbutton(eng, text=tr("Avisar al terminar"), variable=self.notify_var).grid(
+            row=2, column=4, columnspan=2, sticky="w", **pad
+        )
         self._load_engine_fields()
 
         self.step_buttons = []
@@ -611,11 +634,16 @@ class App(tk.Tk):
         now = time.monotonic()
         if self._eta_start is None or done == 0:
             self._eta_start = now
+            self._eta_samples = []
         elapsed = now - self._eta_start
+        if not self._eta_samples or self._eta_samples[-1][1] != done:
+            self._eta_samples.append((now, done))
         if total and done >= total:
             self.eta_var.set(tr("Completado: {done}/{total} en {time}", done=done, total=total, time=self._fmt_time(elapsed)))
         elif done > 0:
-            remaining = elapsed / done * (total - done)
+            remaining = eta.remaining_seconds([(self._eta_start, 0)] + self._eta_samples, done, total)
+            if remaining is None:
+                remaining = elapsed / done * (total - done)
             self.eta_var.set(
                 tr("{done}/{total} · transcurrido {elapsed} · restante ~{remaining}",
                    done=done, total=total, elapsed=self._fmt_time(elapsed), remaining=self._fmt_time(remaining))
@@ -642,6 +670,8 @@ class App(tk.Tk):
             "language": self._language(),
             "engine": self._engine_name(),
             "batch": self._batch_size(),
+            "workers": self._workers(),
+            "credit": self.credit_var.get().strip(),
             "has_key": self._has_key(),
         }
 
@@ -655,27 +685,52 @@ class App(tk.Tk):
         self.eta_var.set("")
         self._set_busy(True)
         self.log(f"=== {tr(title)} ===")
+        started = time.monotonic()
 
         def target():
             ok = False
+            failure = None  # texto del error, para avisar al terminar
             try:
                 work()
                 ok = True
             except Cancelled:
                 self.log(tr("Cancelado por el usuario."))
+            except EngineError as exc:  # errores esperados del servicio (cuota, clave...): sin traza técnica
+                failure = str(exc)
+                self.log(f"ERROR: {exc}")
             except Exception as exc:  # se muestra en el registro, no se pierde
+                failure = str(exc)
                 self.log(f"ERROR: {exc}")
                 self.log(traceback.format_exc(limit=4))
             finally:
+                elapsed = time.monotonic() - started
+
                 def finish():
                     self._set_busy(False)
                     self._refresh_guide()
+                    self._notify_finished(title, ok, failure, elapsed)
                     if ok and on_done:
                         on_done()
 
                 self.events.put(("call", finish))
 
         threading.Thread(target=target, daemon=True).start()
+
+    NOTIFY_AFTER = 30  # segundos: los pasos cortos no molestan con avisos
+
+    def _notify_finished(self, title: str, ok: bool, failure: Optional[str], elapsed: float):
+        """Aviso al terminar o fallar un trabajo largo: sonido, parpadeo en la barra de tareas y ventana."""
+        if failure is None and not ok:
+            return  # cancelado por el usuario: él ya lo sabe
+        if not self.notify_var.get() or elapsed < self.NOTIFY_AFTER:
+            return
+        notify.alert(self, failure is None)
+        if failure is None:
+            messagebox.showinfo("TraductorRenPy", tr("Terminó: {title}", title=tr(title)))
+        else:
+            messagebox.showwarning(
+                "TraductorRenPy", tr("Se detuvo: {title}", title=tr(title)) + "\n\n" + failure
+            )
 
     def _ask(self, fn: Callable):
         """Ejecuta `fn` (un diálogo) en el hilo de la interfaz y espera su resultado."""
@@ -730,6 +785,9 @@ class App(tk.Tk):
             "ui_language": self.ui_setting,
             "engine": self._engine_name(),
             "batch_size": self._batch_size(),
+            "workers": self._workers(),
+            "notify": bool(self.notify_var.get()),
+            "credit": self.credit_var.get().strip(),
             "engines": self.engines_cfg,
         })
 
@@ -740,6 +798,12 @@ class App(tk.Tk):
         self.log(tr(cls.key_help))
         self.log(tr("Pega la clave en «Clave API». Nunca la compartas ni la subas a git."))
         webbrowser.open(cls.key_url)
+
+    def _workers(self) -> int:
+        try:
+            return max(1, min(int(self.workers_var.get()), translate.MAX_WORKERS))
+        except (tk.TclError, ValueError):
+            return 1
 
     def _batch_size(self) -> int:
         try:
@@ -858,6 +922,7 @@ class App(tk.Tk):
         report, cache, _ = pipeline.translate_pending(
             self.info, self.ws, self._snap["language"], self._snap["engine"],
             self.engines_cfg, self._snap["batch"], self.log, self._set_progress, self.cancel,
+            workers=self._snap["workers"],
         )
         self.events.put(("call", lambda: self._show_report(report)))
         self.events.put(("call", lambda: self._show_translations(report, cache)))
@@ -871,7 +936,9 @@ class App(tk.Tk):
 
     def _act_install(self):
         self._ensure_info()
-        pipeline.install_translations(self.info, self.ws, self._snap["language"], self.log)
+        pipeline.install_translations(
+            self.info, self.ws, self._snap["language"], self.log, credit=self._snap["credit"]
+        )
         report = pipeline.detect_pending(self.info, self.ws, self._snap["language"], self.log)
         self.events.put(("call", lambda: self._show_report(report)))
         self._mark("instalar")

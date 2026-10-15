@@ -52,6 +52,15 @@ EN = {
         "The application must restart to apply the language. Restart now?",
     "No se pudo reiniciar sola. Ciérrala y ábrela de nuevo para aplicar el idioma.":
         "It could not restart by itself. Close it and open it again to apply the language.",
+    "Crédito en el juego (opcional)": "Credit in the game (optional)",
+    "Se añade al final de «Acerca de» del juego. Déjalo vacío para no añadir nada.":
+        "Added at the end of the game's \"About\" screen. Leave empty to add nothing.",
+    "Peticiones simultáneas": "Simultaneous requests",
+    "Modo avanzado, pensado para cuentas de pago. Con el nivel gratuito déjalo en 1.":
+        "Advanced mode, meant for paid accounts. On the free tier leave it at 1.",
+    "Avisar al terminar": "Notify when done",
+    "Terminó: {title}": "Finished: {title}",
+    "Se detuvo: {title}": "Stopped: {title}",
     "Reportar un problema": "Report a problem",
     "Dar opinión": "Give feedback",
     "Describe qué pasó (opcional):": "Describe what happened (optional):",
@@ -194,6 +203,13 @@ EN = {
 }
 
 LOG_PATTERNS = [
+    # modo avanzado y crédito
+    ("Modo avanzado: hasta {n} peticiones simultáneas.", "Advanced mode: up to {n} simultaneous requests."),
+    ("Crédito añadido al final de «Acerca de».", "Credit added at the end of \"About\"."),
+    ("Crédito: este juego no define una pantalla «Acerca de»; no se añadió el crédito.",
+     "Credit: this game does not define an \"About\" screen; the credit was not added."),
+    ("Crédito: «Acerca de» aún no está traducido o ya lo tenía; no se cambió.",
+     "Credit: \"About\" is not translated yet or already had it; nothing changed."),
     # análisis del juego
     ("Proyecto: {path}", "Project: {path}"),
     (".rpy sueltos: {n}", "Loose .rpy files: {n}"),

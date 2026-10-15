@@ -8,11 +8,12 @@ Escribirlas en tl/ es la fase 3 (tras validarlas).
 import hashlib
 import json
 import threading
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from .common import LogFn, ProgressFn, check_cancel, noop_log
+from .common import Cancelled, LogFn, ProgressFn, check_cancel, noop_log
 from .engines import BadResponse, Batch, Engine, EngineError, Item
 from .glossary import Glossary
 from .pending import PENDING, TlEntry, TlReport
@@ -28,6 +29,7 @@ class Cache:
 
     def __init__(self, path):
         self.path = Path(path)
+        self._lock = threading.RLock()  # varios lotes simultáneos escriben a la vez
         self.items: Dict[str, dict] = {}
         try:
             data = json.loads(self.path.read_text(encoding="utf-8"))
@@ -40,16 +42,18 @@ class Cache:
         return row["dst"] if row else None
 
     def put(self, text: str, dst: str, engine: str) -> None:
-        self.items[text_key(text)] = {"src": text, "dst": dst, "engine": engine}
+        with self._lock:
+            self.items[text_key(text)] = {"src": text, "dst": dst, "engine": engine}
 
     def save(self) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = self.path.with_suffix(".tmp")
-        tmp.write_text(
-            json.dumps({"version": 1, "items": self.items}, indent=1, ensure_ascii=False),
-            encoding="utf-8",
-        )
-        tmp.replace(self.path)
+        with self._lock:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = self.path.with_suffix(".tmp")
+            tmp.write_text(
+                json.dumps({"version": 1, "items": self.items}, indent=1, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            tmp.replace(self.path)
 
 
 @dataclass
@@ -126,6 +130,10 @@ def _to_engine_batch(units: List[Unit], glossary: Glossary) -> Tuple[Batch, Dict
     return batch, {it.id: u for it, u in zip(items, units)}
 
 
+_RESULT_LOCK = threading.Lock()  # el resultado lo actualizan varios hilos en modo simultáneo
+MAX_WORKERS = 8
+
+
 @dataclass
 class JobResult:
     translated: int = 0
@@ -143,6 +151,7 @@ def run_job(
     progress: Optional[ProgressFn] = None,
     cancel: Optional[threading.Event] = None,
     max_consecutive_failures: int = 3,
+    workers: int = 1,
 ) -> JobResult:
     result = JobResult()
     todo = []
@@ -154,6 +163,11 @@ def run_job(
     log(f"{len(units)} textos únicos: {result.from_cache} ya en caché, {len(todo)} por traducir.")
 
     batches = make_batches(todo, batch_size)
+    workers = max(1, min(int(workers or 1), MAX_WORKERS))
+    if workers > 1 and len(batches) > 1:
+        log(f"Modo avanzado: hasta {workers} peticiones simultáneas.")
+        _run_parallel(batches, engine, glossary, cache, result, log, progress, cancel, workers, max_consecutive_failures)
+        return result
     failures_in_row = 0
     for n, units_b in enumerate(batches, 1):
         check_cancel(cancel)
@@ -180,6 +194,60 @@ def run_job(
     return result
 
 
+def _run_parallel(batches, engine, glossary, cache, result, log, progress, cancel, workers, max_failures):
+    """Traduce varios lotes a la vez. Se parte de la misma lógica que el modo normal:
+    un error definitivo (clave, cuota diaria...) o `max_failures` lotes seguidos fallidos detienen el
+    trabajo; al cancelar se esperan solo los lotes ya enviados y todo lo traducido se guarda."""
+    total, done, nxt, failures_in_row = len(batches), 0, 0, 0
+    running = {}  # futuro -> (número de lote, unidades)
+    stop: Optional[EngineError] = None
+    cancelled = False
+    try:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            while True:
+                while stop is None and not cancelled and nxt < total and len(running) < workers:
+                    if cancel is not None and cancel.is_set():
+                        cancelled = True
+                        break
+                    units_b = batches[nxt]
+                    nxt += 1
+                    running[pool.submit(_translate_units, units_b, engine, glossary, cache, result, log)] = (nxt, units_b)
+                if not running:
+                    break
+                finished, _ = wait(list(running), timeout=0.5, return_when=FIRST_COMPLETED)
+                if cancel is not None and cancel.is_set():
+                    cancelled = True
+                for fut in finished:
+                    n, units_b = running.pop(fut)
+                    done += 1
+                    try:
+                        got = fut.result()
+                    except EngineError as exc:
+                        if exc.fatal:
+                            stop = stop or exc
+                            continue
+                        log(f"  Lote {n}/{total} falló: {exc}")
+                        with _RESULT_LOCK:
+                            result.failed.extend(u.text for u in units_b)
+                        failures_in_row += 1
+                        if failures_in_row >= max_failures and stop is None:
+                            stop = EngineError(f"{failures_in_row} lotes seguidos fallaron; se detiene el trabajo.")
+                        continue
+                    failures_in_row = 0
+                    cache.save()
+                    log(f"  Lote {n}/{total}: {got}/{len(units_b)} traducidos.")
+                    if progress:
+                        progress(done, total)
+    finally:
+        cache.save()
+    if stop is not None:
+        raise stop
+    if cancelled:
+        raise Cancelled()
+    if progress:
+        progress(total, total)
+
+
 def _translate_units(
     units: List[Unit],
     engine: Engine,
@@ -196,7 +264,8 @@ def _translate_units(
     except BadResponse as exc:
         if len(units) == 1:
             log(f"  Sin respuesta útil para una línea ({exc}): {units[0].text[:60]}")
-            result.failed.append(units[0].text)
+            with _RESULT_LOCK:
+                result.failed.append(units[0].text)
             return 0
         half = len(units) // 2
         log(f"  Respuesta inválida ({exc}); se divide el lote de {len(units)} en dos.")
@@ -209,7 +278,8 @@ def _translate_units(
         dst = (out.get(item_id) or "").strip()
         if dst:
             cache.put(unit.text, fix_quotes(fix_newlines(dst)), engine.name)
-            result.translated += 1
+            with _RESULT_LOCK:
+                result.translated += 1
             got += 1
         else:
             missing.append(unit)
@@ -217,7 +287,8 @@ def _translate_units(
         for unit in missing:
             got += _translate_units([unit], engine, glossary, cache, result, log)
     elif missing:
-        result.failed.extend(u.text for u in missing)
+        with _RESULT_LOCK:
+            result.failed.extend(u.text for u in missing)
     return got
 
 

@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
 
+from . import credit as credit_mod
 from . import decompile, extras, importer, install, rpa, sdk
 from .common import LogFn, ProgressFn, check_cancel, noop_log
 from .detect import GameInfo, source_key
@@ -329,8 +330,10 @@ def translate_pending(
     log: LogFn = noop_log,
     progress: Optional[ProgressFn] = None,
     cancel: Optional[threading.Event] = None,
+    workers: int = 1,
 ):
-    """Traduce los pendientes de tl/<idioma> con un motor y guarda la caché."""
+    """Traduce los pendientes de tl/<idioma> con un motor y guarda la caché.
+    `workers` > 1 = modo avanzado: varias peticiones a la vez (útil con cuentas de pago)."""
     engine = create_engine(engine_name, engines_cfg, language)  # falla pronto si falta la clave
     report = detect_pending(info, ws, language, log)
     units = build_units(report, find_characters(script_dirs(info, ws)))
@@ -346,7 +349,7 @@ def translate_pending(
         )
     cache = Cache(ws.cache_file)
     log(f"Motor: {engine.label}. Glosario: {len(glossary.terms)} términos.")
-    result = run_job(units, engine, glossary, cache, batch_size, log, progress, cancel)
+    result = run_job(units, engine, glossary, cache, batch_size, log, progress, cancel, workers=workers)
     cache.save()
     log(
         f"Traducidos {result.translated}, de caché {result.from_cache}, "
@@ -391,7 +394,7 @@ def _write_report(ws: Workspace, result, remaining: int, log: LogFn, dry_run: bo
     log(f"Reporte: {report_path}")
 
 
-def install_translations(info: GameInfo, ws: Workspace, language: str, log: LogFn = noop_log):
+def install_translations(info: GameInfo, ws: Workspace, language: str, log: LogFn = noop_log, credit: str = ""):
     """Valida, escribe el tl (con respaldo) y deja el juego en `language`."""
     project = sdk_project_root(info, ws)
     tl_dir = tl_dir_of(project, language)
@@ -401,7 +404,16 @@ def install_translations(info: GameInfo, ws: Workspace, language: str, log: LogF
         raise FileNotFoundError("No hay traducciones todavía (paso 6 o Importar previa).")
 
     glossary = suggest_glossary(info, ws, language)
-    result = install.apply_cache_to_tl(tl_dir, Cache(ws.cache_file), glossary)
+    cache = Cache(ws.cache_file)
+    result = install.apply_cache_to_tl(tl_dir, cache, glossary)
+    if credit.strip():
+        about = credit_mod.find_about_text(script_dirs(info, ws))
+        if about is None:
+            log("Crédito: este juego no define una pantalla «Acerca de»; no se añadió el crédito.")
+        elif credit_mod.add_credit(result.changes, tl_dir, about, credit, cache):
+            log("Crédito añadido al final de «Acerca de».")
+        else:
+            log("Crédito: «Acerca de» aún no está traducido o ya lo tenía; no se cambió.")
     if result.changes:
         install.write_changes(result, tl_dir, ws.backups, f"tl_{language}_antes_de_instalar", log)
     remaining = len(scan_tl(tl_dir).pending)

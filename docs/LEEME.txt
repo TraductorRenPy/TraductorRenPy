@@ -1,0 +1,34 @@
+TraductorRenPy - LEEME (lo esencial)
+====================================
+
+Traduce juegos hechos con Ren'Py a otros idiomas (por defecto, español neutro).
+
+1) ABRIR EL PROGRAMA
+   Extrae TODA la carpeta del .zip (clic derecho > Extraer todo) y abre TraductorRenPy.exe.
+   No lo ejecutes desde dentro del .zip.
+
+2) SI WINDOWS MUESTRA "WINDOWS PROTEGIO SU PC"
+   Es normal: el programa es gratuito, de codigo abierto, y no tiene firma digital de pago,
+   asi que Windows avisa de cualquier programa poco conocido.
+   Pulsa "Mas informacion" y luego "Ejecutar de todas formas".
+   Todo el codigo esta publicado en el repositorio del proyecto, por si quieres revisarlo.
+   Tu antivirus tambien puede avisar; el motivo es el mismo.
+
+3) LO QUE NECESITAS
+   - El Ren'Py SDK (gratis): https://www.renpy.org/latest.html
+     Descargalo, extraelo y, en la ventana, pulsa "Buscar SDK" (o elige su carpeta).
+   - Una clave de API de un motor de traduccion. El boton "Conseguir clave..." abre la pagina
+     correcta. Gemini tiene nivel gratuito. Tu clave se guarda cifrada, solo en tu equipo.
+
+4) TRADUCIR
+   Elige la carpeta del juego, el idioma y el motor, pega tu clave y pulsa
+   "Traducir este juego automaticamente". Si se corta (por limite diario, por ejemplo),
+   vuelve a pulsarlo mas tarde: continua donde se quedo, sin repetir lo ya traducido.
+
+5) AYUDA Y PROBLEMAS
+   - Boton "Ayuda" dentro del programa.
+   - Boton "Reportar un problema": prepara un informe SIN rutas, correos ni claves; tu lo revisas
+     antes de enviarlo.
+   - Opiniones y preguntas: https://github.com/TraductorRenPy/TraductorRenPy/discussions
+
+Licencia MIT. Mas detalles en README.es.md.

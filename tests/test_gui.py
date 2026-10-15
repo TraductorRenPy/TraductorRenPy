@@ -128,6 +128,39 @@ class GuiSmokeTests(unittest.TestCase):
             cmd = App.restart_command()
         self.assertTrue(cmd[1].endswith("main.py"))
 
+    def test_advanced_fields_are_saved_and_clamped(self):
+        from traductor import translate
+
+        app = self.make_app("es")
+        app.workers_var.set(99)
+        self.assertEqual(app._workers(), translate.MAX_WORKERS)
+        app.workers_var.set(3)
+        app.credit_var.set("  Traducción: Ana  ")
+        app.notify_var.set(False)
+        app._save_settings()
+        saved = settings.load()
+        self.assertEqual((saved["workers"], saved["credit"], saved["notify"]), (3, "Traducción: Ana", False))
+        app._take_snapshot()
+        self.assertEqual((app._snap["workers"], app._snap["credit"]), (3, "Traducción: Ana"))
+
+    def test_notifies_only_for_long_jobs_and_never_when_cancelled(self):
+        app = self.make_app("es")
+        with mock.patch("tkinter.messagebox.showinfo") as info, \
+                mock.patch("tkinter.messagebox.showwarning") as warn, \
+                mock.patch("traductor.notify.alert") as alert:
+            app._notify_finished("Traducir", True, None, 5)  # corto: sin aviso
+            app._notify_finished("Traducir", False, None, 500)  # cancelado: sin aviso
+            info.assert_not_called()
+            app._notify_finished("Traducir", True, None, 120)
+            info.assert_called_once()
+            app._notify_finished("Traducir", False, "Se agotó la cuota diaria", 120)
+            warn.assert_called_once()
+            self.assertIn("cuota diaria", warn.call_args.args[1])
+            self.assertEqual(alert.call_count, 2)
+            app.notify_var.set(False)
+            app._notify_finished("Traducir", True, None, 120)
+            self.assertEqual(alert.call_count, 2)  # desactivado
+
     def test_target_language_selector(self):
         app = self.make_app("es")
         self.assertEqual(app._language(), "spanish")

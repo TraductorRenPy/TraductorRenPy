@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.2
+
+- Plain-text instructions inside the zip (`LEEME.txt` / `READ_ME_FIRST.txt`), including what to do when Windows
+  shows "Windows protected your PC". Releases now get a description with the same warning.
+- Optional **translation credit**: a line added at the end of the game's "About" screen (empty by default).
+- **Notification** (sound, taskbar flash and a window) when a long job finishes or stops.
+  Expected errors such as an exhausted daily quota now show a clear message instead of a technical trace.
+- Remaining-time estimate uses the **recent pace** instead of the overall average.
+- **Simultaneous requests** (advanced, for paid accounts): several batches at once, with a shared pause when the
+  service asks to wait. Default 1 (unchanged behavior).
+- Sharper icon at small sizes (every edge aligned to the pixel grid) and a 1024 px logo.
+
 ## 1.0.1
 
 - Changing the interface language now offers to restart the application by itself (it waits if a job is running).

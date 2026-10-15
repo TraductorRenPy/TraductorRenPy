@@ -48,6 +48,10 @@ def main() -> None:
     out = DIST / NAME
     for extra in ("README.md", "README.es.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "CHANGELOG.md"):
         shutil.copy2(ROOT / extra, out / extra)
+    # Instrucciones en texto plano (se abren con doble clic en el Bloc de notas): UTF-8 con BOM y CRLF.
+    for name in ("LEEME.txt", "READ_ME_FIRST.txt"):
+        text = (ROOT / "docs" / name).read_text(encoding="utf-8").replace("\r\n", "\n").replace("\n", "\r\n")
+        (out / name).write_text(text, encoding="utf-8-sig", newline="")
     shutil.copytree(ROOT / "examples" / "demo_game", out / "examples" / "demo_game")
 
     archive = DIST / f"{NAME}-v{__version__}-windows.zip"
