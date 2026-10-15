@@ -96,6 +96,11 @@ QUÉ TOCA LA APP EN TU JUEGO
   «respaldos»).
 • Los scripts del juego no se modifican.
 
+EMPEZAR DE NUEVO
+El botón «Empezar de nuevo…» ofrece tres cosas: limpiar solo la ventana, reiniciar la
+lista de este juego (se conserva lo traducido) o borrar todo lo de ese juego en la
+carpeta de trabajo (caché, glosario y respaldos; con confirmación). No toca el juego.
+
 DESHACER
 Copia el respaldo de la carpeta «respaldos» de vuelta sobre game/tl/<idioma>.
 
@@ -201,6 +206,11 @@ WHAT THE APP TOUCHES IN YOUR GAME
 • It writes the translation into game/tl/<language>/ and creates game/zz_<language>.rpy.
 • Before writing, it saves a backup in the work folder ("respaldos" subfolder).
 • The game's scripts are never modified.
+
+START OVER
+The "Start over…" button offers three things: just clear the window, restart this
+game's list (what is translated is kept) or delete everything of that game in the
+work folder (cache, glossary and backups; with confirmation). It does not touch the game.
 
 UNDO
 Copy the backup from the "respaldos" folder back over game/tl/<language>.

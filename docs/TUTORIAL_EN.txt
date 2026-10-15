@@ -33,7 +33,10 @@ c) You need an API key. The "Get key..." button opens the right page for each en
 3. THE FIRST TRANSLATION (THE EASY WAY)
 ---------------------------------------
 1. "Game folder": the one that contains the "game" folder. It can be inside other folders.
-2. "Translation language": choose the target language (or type the name of a Ren'Py language folder).
+2. "Translation language": choose the target language from the list or TYPE the name (the field is editable).
+   If the game already has a translation, use the same name as its folder in game/tl (for example "Spanish",
+   with a capital S: in Ren'Py "Spanish" and "spanish" are different languages). The application detects it by
+   itself when it reviews the game and shows it in the field.
 3. "Engine", "API key" and, if you want, the model.
 4. Press "Translate this game automatically". The app runs every step and only asks what it needs:
    - whether you have an earlier translation to reuse,
@@ -166,10 +169,26 @@ exists but is empty (this really happens in some games).
 - Try a copy of the game first if the existing translation has an unusual structure.
 
 
+9 quater. START OVER
+--------------------
+The "Start over..." button offers three options, each with its explanation:
+- Just clear the window: empties the game folder, the summary and the tables. Deletes nothing.
+- Restart this game's list: the "What to do now" list starts again; the cache is kept.
+- Delete everything of this game in the work folder: you lose the cache, glossary and backups of that game
+  (asks for confirmation). The game and what the application installed in it are not touched.
+
+
 10. UNDO
 --------
 Before writing, the application saves a backup in the "respaldos" subfolder of the work folder.
 To undo, copy that backup back over game/tl/<language>. The game's scripts are not modified.
+
+
+10 bis. UPDATING THE APPLICATION
+--------------------------------
+There is no automatic update for now. To update, download the latest zip from
+https://github.com/TraductorRenPy/TraductorRenPy/releases/latest and replace the program folder. Your settings and
+your key are NOT lost: they are stored outside that folder (%APPDATA%\TraductorRenPy).
 
 
 11. PRIVACY

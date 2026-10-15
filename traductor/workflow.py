@@ -55,6 +55,15 @@ def state_path(base: Path) -> Path:
     return Path(base) / "estado.json"
 
 
+def reset_state(base: Path) -> bool:
+    """Borra el progreso de la lista «Qué hacer ahora» de un juego (no toca la caché). True si había algo."""
+    try:
+        state_path(base).unlink()
+        return True
+    except OSError:
+        return False
+
+
 def load_state(base: Path) -> Dict[str, dict]:
     try:
         data = json.loads(state_path(base).read_text(encoding="utf-8"))

@@ -2,6 +2,7 @@
 
 import os
 import queue
+import shutil
 import subprocess
 import sys
 import threading
@@ -119,6 +120,12 @@ class App(tk.Tk):
         )
         self.ui_box.pack(side="left", padx=(6, 0))
         self.ui_box.bind("<<ComboboxSelected>>", lambda e: self._ui_language_changed())
+        ttk.Label(
+            cfg,
+            text=tr("El idioma se puede escribir. Si el juego ya trae una traducción, usa el mismo nombre que su carpeta "
+                    "en game/tl (p. ej. «Spanish»). La app lo detecta sola al revisar el juego."),
+            foreground="#666666",
+        ).grid(row=last + 1, column=1, columnspan=3, sticky="w", **pad)
 
         eng = ttk.LabelFrame(
             self, text=tr("Motor de traducción (uno por trabajo; cada persona usa su propia clave, guardada cifrada en este equipo)")
@@ -181,6 +188,7 @@ class App(tk.Tk):
             ttk.Button(top, text=tr("Dar opinión"), command=self.open_feedback).pack(side="left", padx=(6, 0))
         self.cancel_btn = ttk.Button(top, text=tr("Cancelar"), command=self.cancel.set, state="disabled")
         self.cancel_btn.pack(side="right")
+        ttk.Button(top, text=tr("Empezar de nuevo…"), command=self.open_reset).pack(side="right", padx=(0, 8))
         if about.DONATE_URL:
             ttk.Button(top, text=tr("♥ Apoyar el proyecto"), command=self.open_donate).pack(side="right", padx=8)
         self.guide_text = tk.Text(guide, height=11, wrap="word", state="disabled", relief="flat",
@@ -270,6 +278,76 @@ class App(tk.Tk):
 
     # --- guía -----------------------------------------------------------
 
+    def _clear_game_panels(self):
+        """Deja en blanco lo que se muestra de un juego: resumen, tablas y progreso."""
+        self.info = self.ws = self.report = self._validated = None
+        self._show_summary("")
+        self.tree.delete(*self.tree.get_children())
+        self.trans_tree.delete(*self.trans_tree.get_children())
+        self.eta_var.set("")
+        if not self.busy:
+            self.progress.configure(value=0)
+
+    def open_reset(self):
+        """Ventana «Empezar de nuevo»: elegir qué limpiar, diciendo qué se pierde en cada caso."""
+        if self.busy:
+            messagebox.showinfo("TraductorRenPy", tr("Espera a que termine el trabajo en curso o cancélalo."))
+            return
+        win = tk.Toplevel(self)
+        win.title(tr("Empezar de nuevo"))
+        win.resizable(False, False)
+        choice = tk.StringVar(value="ventana")
+        options = [
+            ("ventana", tr("Solo limpiar la ventana"),
+             tr("Deja en blanco la carpeta del juego, el resumen y las tablas. No se borra nada del disco.")),
+            ("lista", tr("Reiniciar la lista de este juego"),
+             tr("La lista «Qué hacer ahora» vuelve a empezar. Se conserva lo ya traducido (la caché).")),
+            ("todo", tr("Borrar todo lo de este juego en la carpeta de trabajo"),
+             tr("Pierdes la caché de traducciones, el glosario y los respaldos de este juego. "
+                "No se toca el juego ni lo que la app ya instaló en él.")),
+        ]
+        ttk.Label(win, text=tr("¿Qué quieres limpiar?"), font=("Segoe UI", 10, "bold")).pack(
+            anchor="w", padx=14, pady=(12, 4)
+        )
+        for value, title, detail in options:
+            ttk.Radiobutton(win, text=title, value=value, variable=choice).pack(anchor="w", padx=14, pady=(6, 0))
+            ttk.Label(win, text=detail, foreground="#666666", wraplength=520, justify="left").pack(
+                anchor="w", padx=36
+            )
+        bar = ttk.Frame(win)
+        bar.pack(pady=12)
+        ttk.Button(bar, text=tr("Aplicar"), command=lambda: (win.destroy(), self._do_reset(choice.get()))).pack(
+            side="left", padx=4
+        )
+        ttk.Button(bar, text=tr("Cancelar"), command=win.destroy).pack(side="left", padx=4)
+
+    def _do_reset(self, choice: str):
+        try:
+            self._ensure_info_sync()
+            base = self.ws.base
+        except Exception:  # sin juego válido: solo se puede limpiar la ventana
+            base = None
+        if choice == "lista" and base is not None:
+            workflow.reset_state(base)
+            self.log(tr("La lista de este juego se reinició; la caché sigue ahí."))
+            self._refresh_guide()
+            return
+        if choice == "todo" and base is not None:
+            if not messagebox.askyesno(
+                tr("Empezar de nuevo"),
+                tr("Se borrará la carpeta de trabajo de este juego:\n\n{path}\n\nIncluye la caché de traducciones, el "
+                   "glosario y los respaldos. No se puede deshacer. ¿Continuar?", path=base),
+            ):
+                return
+            shutil.rmtree(base, ignore_errors=True)
+            self.log(tr("Carpeta de trabajo de este juego borrada."))
+        self.game_var.set("")
+        self._clear_game_panels()
+        self.log_box.configure(state="normal")
+        self.log_box.delete("1.0", "end")
+        self.log_box.configure(state="disabled")
+        self._refresh_guide()
+
     def _schedule_refresh(self):
         if self._refresh_job is not None:
             self.after_cancel(self._refresh_job)
@@ -289,6 +367,7 @@ class App(tk.Tk):
                 if not self.game_var.get().strip()
                 else i18n.tr_log(str(exc))
             )
+            self._clear_game_panels()  # sin juego válido no debe quedar a la vista el anterior
             text.insert("end", msg)
             text.configure(state="disabled")
             self.next_btn.configure(text=tr("Hacer el siguiente paso"))
@@ -770,6 +849,7 @@ class App(tk.Tk):
         exact = next((name for name in existing if name.lower() == typed.lower()), None)
         if exact:
             self._snap["language"] = exact
+            self.events.put(("call", lambda: self.lang_var.set(exact)))  # que se vea el nombre exacto en la ventana
             self.log(tr("Este juego ya tiene el idioma «{name}»: se usa ese nombre exacto (Ren'Py distingue "
                         "mayúsculas de minúsculas).", name=exact))
 

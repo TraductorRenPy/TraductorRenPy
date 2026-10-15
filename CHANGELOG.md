@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.7
+
+- The translation-language field now says it can be typed, and shows the exact language name when the app finds
+  the game already has it with another capitalization (e.g. `Spanish`).
+- New **"Start over..."** button: clear only the window, restart a game's list (keeps the cache) or delete a game's
+  whole work folder (with confirmation). Clearing the game folder now also empties the summary and tables, which
+  used to keep showing the previous game.
+
 ## 1.0.6
 
 - The translation credit is no longer optional: **"Translated with TraductorRenPy"** (in the translation's language)

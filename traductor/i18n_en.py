@@ -81,6 +81,26 @@ EN = {
     "Reinicia el juego para ver el cambio.": "Restart the game to see the change.",
     "Este juego ya tiene el idioma «{name}»: se usa ese nombre exacto (Ren'Py distingue mayúsculas de minúsculas).":
         "This game already has the language \"{name}\": that exact name is used (Ren'Py is case-sensitive).",
+    "El idioma se puede escribir. Si el juego ya trae una traducción, usa el mismo nombre que su carpeta en game/tl (p. ej. «Spanish»). La app lo detecta sola al revisar el juego.":
+        "You can type the language. If the game already has a translation, use the same name as its folder in game/tl (e.g. \"Spanish\"). The app detects it by itself when it reviews the game.",
+    "Empezar de nuevo…": "Start over…",
+    "Empezar de nuevo": "Start over",
+    "Espera a que termine el trabajo en curso o cancélalo.": "Wait for the current job to finish or cancel it.",
+    "Solo limpiar la ventana": "Just clear the window",
+    "Deja en blanco la carpeta del juego, el resumen y las tablas. No se borra nada del disco.":
+        "Empties the game folder, the summary and the tables. Nothing is deleted from disk.",
+    "Reiniciar la lista de este juego": "Restart this game's list",
+    "La lista «Qué hacer ahora» vuelve a empezar. Se conserva lo ya traducido (la caché).":
+        "The \"What to do now\" list starts again. What is already translated (the cache) is kept.",
+    "Borrar todo lo de este juego en la carpeta de trabajo": "Delete everything of this game in the work folder",
+    "Pierdes la caché de traducciones, el glosario y los respaldos de este juego. No se toca el juego ni lo que la app ya instaló en él.":
+        "You lose the translation cache, the glossary and this game's backups. The game and what the app already installed in it are not touched.",
+    "¿Qué quieres limpiar?": "What do you want to clear?",
+    "Aplicar": "Apply",
+    "La lista de este juego se reinició; la caché sigue ahí.": "This game's list was restarted; the cache is still there.",
+    "Se borrará la carpeta de trabajo de este juego:\n\n{path}\n\nIncluye la caché de traducciones, el glosario y los respaldos. No se puede deshacer. ¿Continuar?":
+        "This game's work folder will be deleted:\n\n{path}\n\nIt includes the translation cache, the glossary and the backups. This cannot be undone. Continue?",
+    "Carpeta de trabajo de este juego borrada.": "This game's work folder was deleted.",
     "Reportar un problema": "Report a problem",
     "Dar opinión": "Give feedback",
     "Describe qué pasó (opcional):": "Describe what happened (optional):",

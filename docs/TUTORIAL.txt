@@ -32,7 +32,10 @@ c) Necesitas una clave de API. El boton "Conseguir clave..." abre la pagina corr
 3. LA PRIMERA TRADUCCION (EL CAMINO FACIL)
 ------------------------------------------
 1. "Carpeta del juego": la que contiene la carpeta "game". Puede estar dentro de otras carpetas.
-2. "Idioma de la traduccion": elige el idioma destino (o escribe el nombre de una carpeta de idioma de Ren'Py).
+2. "Idioma de la traduccion": elige el idioma destino de la lista o ESCRIBE el nombre (el campo se puede editar).
+   Si el juego ya trae una traduccion, usa el mismo nombre que su carpeta en game/tl (por ejemplo "Spanish",
+   con la S mayuscula: en Ren'Py "Spanish" y "spanish" son idiomas distintos). La aplicacion lo detecta sola al
+   revisar el juego y lo muestra en el campo.
 3. "Motor", "Clave API" y, si quieres, el modelo.
 4. Pulsa "Traducir este juego automaticamente". La app hace todos los pasos y solo pregunta lo necesario:
    - si tienes una traduccion anterior para aprovecharla,
@@ -165,10 +168,26 @@ pero esta vacia (pasa de verdad en algunos juegos).
 - Prueba primero con una copia del juego si la traduccion existente tiene una estructura poco comun.
 
 
+9 quater. EMPEZAR DE NUEVO
+--------------------------
+El boton "Empezar de nuevo..." ofrece tres opciones, cada una con su explicacion:
+- Solo limpiar la ventana: deja en blanco la carpeta del juego, el resumen y las tablas. No borra nada.
+- Reiniciar la lista de este juego: la lista "Que hacer ahora" vuelve a empezar; se conserva la cache.
+- Borrar todo lo de este juego en la carpeta de trabajo: pierdes cache, glosario y respaldos de ese juego
+  (pide confirmacion). No se toca el juego ni lo que la aplicacion instalo en el.
+
+
 10. DESHACER
 ------------
 Antes de escribir, la aplicacion guarda un respaldo en la subcarpeta "respaldos" de la carpeta de trabajo.
 Para deshacer, copia ese respaldo de vuelta sobre game/tl/<idioma>. Los scripts del juego no se modifican.
+
+
+10 bis. ACTUALIZAR LA APLICACION
+-------------------------------
+Por ahora no hay actualizacion automatica. Para actualizar, descarga el zip mas reciente desde
+https://github.com/TraductorRenPy/TraductorRenPy/releases/latest y reemplaza la carpeta del programa. Tus ajustes y
+tu clave NO se pierden: se guardan fuera de esa carpeta (%APPDATA%\TraductorRenPy).
 
 
 11. PRIVACIDAD

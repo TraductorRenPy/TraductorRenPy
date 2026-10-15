@@ -238,10 +238,50 @@ class GuiSmokeTests(unittest.TestCase):
         with mock.patch("traductor.gui.find_game_root", return_value=root):
             app._ensure_info()
         self.assertEqual(app._snap["language"], "Spanish")  # el que ya usa la otra traducción
+        app.update()  # procesa las tareas pendientes de la ventana
+        app._pump()
+        self.assertEqual(app.lang_var.get(), "Spanish")  # y se ve el nombre exacto en el campo
         app._snap["language"] = "swedish"  # un idioma que el juego no tiene se respeta tal cual
         with mock.patch("traductor.gui.find_game_root", return_value=root):
             app._ensure_info()
         self.assertEqual(app._snap["language"], "swedish")
+
+    def test_clearing_the_game_folder_empties_the_panels(self):
+        app = self.make_app("es")
+        app._show_summary("Proyecto: otro juego")
+        app.tree.insert("", "end", values=("a.rpy", 1, 1, 0))
+        app.trans_tree.insert("", "end", values=("", "Hi", "Hola"))
+        app.game_var.set("")
+        app._refresh_guide()
+        self.assertEqual(app.summary.get("1.0", "end").strip(), "")
+        self.assertEqual(app.tree.get_children(), ())
+        self.assertEqual(app.trans_tree.get_children(), ())
+        self.assertIsNone(app.info)
+
+    def test_start_over_options_clean_only_what_they_say(self):
+        from types import SimpleNamespace
+
+        from traductor import workflow
+
+        app = self.make_app("es")
+        base = Path(self.tmp.name) / "ws-juego"
+        base.mkdir()
+        (base / "traducciones.json").write_text("{}", encoding="utf-8")
+        workflow.state_path(base).write_text('{"steps": {"analizar": {"done": true}}}', encoding="utf-8")
+        app.ws = SimpleNamespace(base=base)
+        app.game_var.set("C:/juego")
+        with mock.patch.object(app, "_ensure_info_sync"), mock.patch.object(app, "_refresh_guide"):
+            app._do_reset("lista")  # solo el progreso: la caché se conserva
+            self.assertFalse(workflow.state_path(base).exists())
+            self.assertTrue((base / "traducciones.json").exists())
+            with mock.patch("tkinter.messagebox.askyesno", return_value=False):
+                app._do_reset("todo")  # sin confirmar no se borra nada
+            self.assertTrue(base.exists())
+            app.ws = SimpleNamespace(base=base)
+            with mock.patch("tkinter.messagebox.askyesno", return_value=True):
+                app._do_reset("todo")
+            self.assertFalse(base.exists())
+        self.assertEqual(app.game_var.get(), "")
 
     def test_target_language_selector(self):
         app = self.make_app("es")
