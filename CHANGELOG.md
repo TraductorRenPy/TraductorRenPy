@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.3
+
+- Validation now restores the `\n` line breaks at the start or end of a text when the model drops them
+  (they were the most common reason for lines being left untranslated). Interior breaks and lost tags are still
+  rejected, never guessed.
+
 ## 1.0.2
 
 - Plain-text instructions inside the zip (`LEEME.txt` / `READ_ME_FIRST.txt`), including what to do when Windows

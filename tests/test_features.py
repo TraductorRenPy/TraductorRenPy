@@ -210,5 +210,26 @@ class PackagedDocsTests(unittest.TestCase):
         self.assertIn("release-notes.md", (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8"))
 
 
+class EdgeBreakRepairTests(unittest.TestCase):
+    def test_restores_leading_and_trailing_line_breaks(self):
+        from traductor import validate
+
+        text, reasons, repaired = validate.validate("You rejected Hedwig.\\n", "Rechazaste a Hedwig.")
+        self.assertEqual((text, reasons, repaired), ("Rechazaste a Hedwig.\\n", [], True))
+        text, _, repaired = validate.validate("\\n\\nYou called Liam out.", "Le reclamaste a Liam.")
+        self.assertEqual((text, repaired), ("\\n\\nLe reclamaste a Liam.", True))
+        text, _, _ = validate.validate("\\nHi\\n", "\\nHola")  # uno de los dos bordes ya estaba
+        self.assertEqual(text, "\\nHola\\n")
+
+    def test_interior_breaks_and_missing_tags_are_still_rejected(self):
+        from traductor import validate
+
+        text, reasons, _ = validate.validate("One\\nTwo", "Uno Dos")  # falta un \n interior: no se inventa
+        self.assertIsNone(text)
+        self.assertTrue(reasons)
+        text, reasons, _ = validate.validate("You {b}should{/b} care", "Deberia importarte")
+        self.assertIsNone(text)
+
+
 if __name__ == "__main__":
     unittest.main()

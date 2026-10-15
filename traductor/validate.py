@@ -6,6 +6,7 @@ barra final) y no está vacía. Un fallo típico y reparable es que el modelo
 escriba `{i}` donde iba `{/i}`: se corrige copiando el tag del original.
 """
 
+import re
 from collections import Counter
 from typing import List, Optional, Tuple
 
@@ -75,6 +76,22 @@ def repair_tags(original: str, translated: str) -> Optional[str]:
     return "".join(out)
 
 
+_LEAD_BREAKS = re.compile(r"^(?:\\n)+")  # el texto «\n» (barra y n), no un salto real
+_TRAIL_BREAKS = re.compile(r"(?:\\n)+$")
+
+
+def repair_edge_breaks(original: str, translated: str) -> Optional[str]:
+    """Los saltos `\n` al principio o al final del original los pierde el modelo a menudo (los toma por
+    espacio en blanco). Se restituyen tal cual; solo se toca ese borde, nunca el interior."""
+    lead = _LEAD_BREAKS.match(original)
+    trail = _TRAIL_BREAKS.search(original)
+    if not lead and not trail:
+        return None
+    core = _TRAIL_BREAKS.sub("", _LEAD_BREAKS.sub("", translated))
+    fixed = (lead.group(0) if lead else "") + core + (trail.group(0) if trail else "")
+    return fixed if fixed != translated else None
+
+
 def strip_artifacts(original: str, translated: str) -> str:
     """Quita el `q=` que algunos traductores automáticos dejan al inicio
     (viene del parámetro `q=` de la API de Google Translate)."""
@@ -90,7 +107,10 @@ def validate(original: str, translated: str) -> Tuple[Optional[str], List[str], 
     reasons = check(original, cleaned)
     if not reasons:
         return cleaned, [], artifact
-    fixed = repair_tags(original, cleaned)
+    base = repair_edge_breaks(original, cleaned) or cleaned
+    if base is not cleaned and not check(original, base):
+        return base, [], True
+    fixed = repair_tags(original, base)
     if fixed is not None and not check(original, fixed):
         return fixed, [], True
     return None, reasons, False
