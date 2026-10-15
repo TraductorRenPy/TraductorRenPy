@@ -1,0 +1,2 @@
+# Solo para construir el .exe (la app no necesita paquetes extra para funcionar).
+pyinstaller>=6.0

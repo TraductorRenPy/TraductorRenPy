@@ -1,0 +1,24 @@
+name: release
+
+# Al publicar una etiqueta tipo v1.0.0 se construye el .exe y se adjunta a una Release.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  windows-exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      - run: python -m unittest discover -s tests -t .
+      - run: python build_exe.py
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip

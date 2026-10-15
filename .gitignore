@@ -1,0 +1,24 @@
+﻿# Datos de trabajo de la app (contienen contenido de juegos): nunca al repositorio
+trabajo/
+*.rpa
+*.rpyc
+
+# Claves y configuración local
+settings.json
+.env
+*.key
+
+# Python / empaquetado
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+
+# Editores / sistema
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini

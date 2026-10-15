@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "traductorrenpy"
+version = "1.0.0"
+description = "Translate Ren'Py visual novels into other languages with one button."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+keywords = ["renpy", "translation", "localization", "visual novel"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Topic :: Games/Entertainment",
+    "Topic :: Software Development :: Localization",
+]
+dependencies = []  # solo la biblioteca estándar
+
+[project.scripts]
+traductorrenpy = "traductor.gui:main"
+
+[tool.setuptools]
+packages = ["traductor", "traductor.engines"]
+# vendor/unrpyc se incluye en el .exe y en el repositorio; con `pip install` hay que indicar su ruta en la app.
