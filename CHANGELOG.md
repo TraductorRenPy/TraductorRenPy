@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.4
+
+- New button **"Retry the lines that failed validation"**: it saves a copy of the cache, removes those lines and
+  translates them again with the chosen engine (they used to stay in the cache and were never retried).
+- Updated in-app **Help** (what to do when it stops, playing while you translate, advanced settings, adult content,
+  undo, the Windows warning) with a button that opens the full tutorial.
+- Full **tutorials** as plain text inside the zip: `TUTORIAL.txt` (Spanish) and `TUTORIAL_EN.txt` (English).
+
 ## 1.0.3
 
 - Validation now restores the `\n` line breaks at the start or end of a text when the model drops them

@@ -61,6 +61,15 @@ EN = {
     "Avisar al terminar": "Notify when done",
     "Terminó: {title}": "Finished: {title}",
     "Se detuvo: {title}": "Stopped: {title}",
+    "Reintentar las que fallaron la validación": "Retry the lines that failed validation",
+    "Se volverán a traducir {n} líneas que fallaron la validación, con {engine}.\n\nAntes se guarda una copia de la caché. ¿Continuar?":
+        "{n} lines that failed validation will be translated again, with {engine}.\n\nA copy of the cache is saved first. Continue?",
+    "Listo. Pulsa «9. Revisar las traducciones» para ver cuántas pasan ahora.":
+        "Done. Press \"9. Review the translations\" to see how many pass now.",
+    "Abrir el tutorial completo (.txt)": "Open the full tutorial (.txt)",
+    "No se encontró el archivo del tutorial. Está en la carpeta del programa.":
+        "The tutorial file was not found. It is in the program folder.",
+    "No se pudo abrir el tutorial: {path}": "The tutorial could not be opened: {path}",
     "Reportar un problema": "Report a problem",
     "Dar opinión": "Give feedback",
     "Describe qué pasó (opcional):": "Describe what happened (optional):",
@@ -203,6 +212,10 @@ EN = {
 }
 
 LOG_PATTERNS = [
+    # reintento de las que fallaron la validación
+    ("No hay líneas que hayan fallado la validación.", "No lines failed validation."),
+    ("Copia de la caché: {path}", "Cache copy: {path}"),
+    ("Se volverán a traducir {n} líneas con {engine}.", "{n} lines will be translated again with {engine}."),
     # modo avanzado y crédito
     ("Modo avanzado: hasta {n} peticiones simultáneas.", "Advanced mode: up to {n} simultaneous requests."),
     ("Crédito añadido al final de «Acerca de».", "Credit added at the end of \"About\"."),

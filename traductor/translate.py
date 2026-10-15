@@ -45,6 +45,11 @@ class Cache:
         with self._lock:
             self.items[text_key(text)] = {"src": text, "dst": dst, "engine": engine}
 
+    def remove(self, text: str) -> bool:
+        """Quita la traducción de `text`; True si existía."""
+        with self._lock:
+            return self.items.pop(text_key(text), None) is not None
+
     def save(self) -> None:
         with self._lock:
             self.path.parent.mkdir(parents=True, exist_ok=True)

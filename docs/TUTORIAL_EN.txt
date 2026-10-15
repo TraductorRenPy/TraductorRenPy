@@ -1,0 +1,177 @@
+TraductorRenPy - FULL TUTORIAL
+==============================
+
+This guide explains how the application works, step by step, and what to do when something does not go as
+expected. For the essentials on one page, read READ_ME_FIRST.txt. Inside the program, the "Help" button has a
+summary.
+
+
+1. WHAT IT DOES
+---------------
+TraductorRenPy translates games made with Ren'Py (visual novels) into another language, neutral Spanish by
+default. It uses a translation engine (Gemini, Grok or Microsoft Translator) with your own API key.
+It does not modify the game's scripts: it writes the translation into game/tl/<language>/ and creates a file
+game/zz_<language>.rpy that activates the language on start.
+
+
+2. BEFORE YOU START
+-------------------
+a) Windows may show "Windows protected your PC" when you open the .exe. This is expected: the program is free,
+   open source and has no paid digital signature. Click "More info" and then "Run anyway". ALWAYS extract the
+   whole folder from the .zip before opening it.
+b) You need the Ren'Py SDK (free): https://www.renpy.org/latest.html
+   Download it and extract it anywhere. The application tries to find it by itself; if it cannot, press
+   "Buscar SDK" (find SDK) or pick its folder with "Examinar..." (browse).
+c) You need an API key. The "Get key..." button opens the right page for each engine.
+   - Gemini (Google): has a free tier, with daily limits.
+   - Grok (xAI): paid (you add credit).
+   - Microsoft Translator: has its own free monthly tier; translates literally.
+   Everyone uses THEIR key. It is stored encrypted (Windows DPAPI) only on your computer and is only sent to the
+   service of the engine you choose.
+
+
+3. THE FIRST TRANSLATION (THE EASY WAY)
+---------------------------------------
+1. "Game folder": the one that contains the "game" folder. It can be inside other folders.
+2. "Translation language": choose the target language (or type the name of a Ren'Py language folder).
+3. "Engine", "API key" and, if you want, the model.
+4. Press "Translate this game automatically". The app runs every step and only asks what it needs:
+   - whether you have an earlier translation to reuse,
+   - whether you want to spend your API quota on what is missing (it tells you how many texts that is),
+   - whether you want to install the translation into the game.
+5. Open the game: it should start in the chosen language.
+
+The "What to do now" list shows each step with a mark: (done), (next) or (pending). The "Do the next step"
+button runs exactly the one that is due. You can stop and continue another day: the app remembers where you
+were.
+
+
+4. WHAT EACH STEP DOES (BUTTONS 1 TO 10)
+----------------------------------------
+1. Review the game: detects the folder, the .rpy/.rpyc scripts and the .rpa archives.
+2. Extract the scripts: if they are inside an .rpa, it takes them out to a working copy.
+3. Decompile: turns .rpyc files into readable text with unrpyc (already included; the field is optional).
+4. Create the text list: uses the Ren'Py SDK to generate game/tl/<language>/ with all the texts.
+5. Find unmarked texts: finds texts the game shows without marking them for translation (text inputs,
+   buttons, notifications...) and adds them to zz_extra_strings.rpy.
+6. Use an earlier translation: reuses an existing translation (yours or another person's patch) by identifier
+   and by exact text, so you only translate what is missing.
+7. Names glossary: terms that are always translated the same way (or not translated). It is created
+   automatically with the character names and the game title, which is never translated. You can edit it.
+8. Translate what is missing: sends the texts to the engine in batches, with scene context, and saves each batch
+   in the cache (traducciones.json, inside the work folder).
+9. Review the translations: checks, WITHOUT writing anything, that each translation keeps the original's
+   {i} tags, [name] variables, %s codes and \n breaks and does not break the quotes.
+10. Install into the game: writes what passed the review and sets the game to that language. It saves a backup
+    first.
+
+
+5. SETTINGS
+-----------
+- Work folder: where the cache, glossary, backups and report of each game are stored.
+- Interface language: Automatic, Spanish or English. When you change it, the application offers to restart by
+  itself (if a job is running, it applies the next time you open it).
+- Lines per batch (default 20): how many texts go in each request. More lines = fewer requests (helps with
+  daily limits) but a higher risk of defective answers; if that happens, the app splits the batch and retries.
+  It cannot be changed in the middle of a translation: press Cancel, change the number and continue.
+- Simultaneous requests (advanced mode): sends several batches at once. Meant for PAID accounts. On the free
+  tier leave it at 1: the service's per-minute limit leaves almost no room to go faster. Up to 8.
+  If the service asks to wait, all requests wait together.
+- Notify when done: if a job lasts more than 30 seconds, it beeps, the taskbar button flashes and a window
+  appears when it finishes or stops. It can be turned off.
+- Credit in the game (optional): a line added at the end of the game's "About" screen, for example
+  "Spanish translation: your alias". Empty by default (adds nothing). If the game has no "About" screen, the log
+  says so. Use the name or alias you want to be public.
+
+
+6. IF IT STOPS OR THERE ARE ERRORS
+----------------------------------
+Everything translated is saved in the cache after each batch, so NOTHING is lost. To continue, press
+"Translate what is missing" again: it skips what is already done.
+
+- "The daily quota was exhausted": the free tier has a daily cap (per model). Options: wait for the daily reset,
+  change the model, change the engine, or enable billing on your account.
+  Creating extra accounts only to get around the limit may go against the provider's terms.
+- "Key rejected or no permission": check the key is pasted correctly and belongs to the chosen engine.
+- "The model does not exist": change the Model field to one available on your account.
+- "3 batches in a row failed": usually network or a service outage. Wait a bit and retry.
+- Per-minute limits do not stop anything: the app waits by itself and retries.
+- Errors are shown in the log, on a line starting with ERROR, and a window warns you.
+
+"Untranslated" lines (the engine did not return them): change engine (for example Microsoft) and press
+"Translate what is missing"; it only processes what is pending.
+
+Lines that "failed validation" (translated but with broken formatting):
+- They stay untranslated (in the original language) in the game; they do no harm.
+- The application already repairs by itself the \n breaks that the model tends to lose at the start or end.
+- For the rest, reporte.txt (in the work folder) shows file and line, the original and the translation.
+- Use "Retry the lines that failed validation": it saves a copy of the cache, removes those lines and translates
+  them again with the chosen engine. Microsoft usually does well here because it protects tags and variables.
+  Then press "9. Review the translations".
+
+
+7. PLAY WHILE YOU TRANSLATE
+---------------------------
+You can cancel, install and play what is already translated, and continue later:
+1. Cancel. 2. Review (9). 3. Install (10). 4. Close the game before installing. 5. Play.
+6. To continue: "Translate what is missing", and repeat Review and Install.
+Untranslated text appears in the original language (Ren'Py shows the original when a translation is missing).
+There may be a mix of languages inside a scene. The first time you open the game after installing, Ren'Py
+recompiles and may take a little longer.
+
+
+8. DIALOGUE BOX
+---------------
+The "Dialogue box..." button changes only the look of the text box, in a separate file
+(game/zz_ui_tweaks.rpy). Options: Game original, Discreet outline, Compact (shorter dark bar) and Text only
+(no bar). Useful when the translated text takes more space or the bar covers the picture.
+To go back, choose "Game original".
+
+
+9. ADULT CONTENT AND FILTERS
+----------------------------
+Some games include adult content. The instructions the application gives Gemini and Grok ask to translate
+faithfully, without censoring or softening, but the service may apply its own filters and block answers:
+those lines stay untranslated. Microsoft Translator does not filter by content, though it is more literal.
+A common combination: translate with an AI and complete what remains with Microsoft.
+This applies to games with adult characters.
+
+
+10. UNDO
+--------
+Before writing, the application saves a backup in the "respaldos" subfolder of the work folder.
+To undo, copy that backup back over game/tl/<language>. The game's scripts are not modified.
+
+
+11. PRIVACY
+-----------
+- Your key is stored encrypted on your computer (folder %APPDATA%\TraductorRenPy) and is only sent to the
+  service of the engine you choose. There is no telemetry.
+- The game's texts are sent to the chosen engine to be translated: keep that in mind for games or content you
+  do not want to share with a third party.
+- "Report a problem" prepares a report WITHOUT paths, e-mails or keys, and tries not to include lines of game
+  text; nothing is sent by itself: you review it and decide whether to post it.
+
+
+12. LIMITS
+----------
+- Text drawn inside images (signs, backgrounds with letters) cannot be translated with this application.
+- The Ren'Py SDK is required and not included: download it from renpy.org.
+- The .exe is for Windows.
+- Machine translation can make mistakes: review the important scenes.
+
+
+13. HELP AND COMMUNITY
+----------------------
+- "Help" button inside the program.
+- Questions and feedback: https://github.com/TraductorRenPy/TraductorRenPy/discussions
+- Problems: "Report a problem" button (opens a ready-made report on GitHub).
+- Support the project: "Support the project" button.
+
+
+14. RESPONSIBLE USE
+-------------------
+Only translate games you have the right to translate. Do not share extracted scripts or translations of other
+people's games without their authors' permission, and credit the original author.
+
+MIT license. unrpyc (MIT) is included; Ren'Py belongs to its authors.

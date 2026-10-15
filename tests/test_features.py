@@ -231,5 +231,121 @@ class EdgeBreakRepairTests(unittest.TestCase):
         self.assertIsNone(text)
 
 
+TL_RETRY = '''# game/script.rpy:1
+translate spanish start_aaaaaaaa:
+
+    # c "Hello [name]!"
+    c "Hello [name]!"
+
+# game/script.rpy:3
+translate spanish start_cccccccc:
+
+    # "{i}Bad tag{/i}"
+    "{i}Bad tag{/i}"
+'''
+
+
+class RetryFailedValidationTests(unittest.TestCase):
+    def setUp(self):
+        from types import SimpleNamespace
+
+        from traductor import pipeline
+
+        self.pipeline = pipeline
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        root = Path(self.tmp.name) / "juego"
+        tl = root / "game" / "tl" / "spanish"
+        tl.mkdir(parents=True)
+        (tl / "script.rpy").write_text(TL_RETRY, encoding="utf-8")
+        self.info = SimpleNamespace(root=root, need_collect=False, name="Juego")
+        self.ws = pipeline.Workspace(Path(self.tmp.name) / "ws")
+        self.ws.base.mkdir()
+        cache = Cache(self.ws.cache_file)
+        cache.put("Hello [name]!", "¡Hola [name]!", "fake")
+        cache.put("{i}Bad tag{/i}", "Etiqueta mala", "fake")  # perdió las etiquetas: no pasa la validación
+        cache.save()
+        patcher = mock.patch.object(pipeline, "suggest_glossary", return_value=Glossary([]))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_lists_only_the_lines_that_fail_validation(self):
+        bad = self.pipeline.failed_validation_originals(self.info, self.ws, "spanish")
+        self.assertEqual(bad, ["{i}Bad tag{/i}"])
+
+    def test_retry_removes_only_those_lines_keeps_a_backup_and_translates_again(self):
+        engine = mock.Mock(label="Falso")
+        with mock.patch.object(self.pipeline, "create_engine", return_value=engine), \
+                mock.patch.object(self.pipeline, "translate_pending") as tp:
+            n = self.pipeline.retry_failed_validation(
+                self.info, self.ws, "spanish", "microsoft", {}, 20, workers=2
+            )
+        self.assertEqual(n, 1)
+        cache = Cache(self.ws.cache_file)
+        self.assertEqual(cache.get("Hello [name]!"), "¡Hola [name]!")  # lo válido no se toca
+        self.assertIsNone(cache.get("{i}Bad tag{/i}"))
+        backups = list(self.ws.backups.glob("traducciones_antes_de_reintentar_*.json"))
+        self.assertEqual(len(backups), 1)
+        self.assertEqual(Cache(backups[0]).get("{i}Bad tag{/i}"), "Etiqueta mala")  # la copia conserva todo
+        tp.assert_called_once()
+        self.assertEqual(tp.call_args.args[3], "microsoft")  # con el motor elegido
+        self.assertEqual(tp.call_args.kwargs["workers"], 2)
+
+    def test_nothing_to_retry(self):
+        cache = Cache(self.ws.cache_file)
+        cache.put("{i}Bad tag{/i}", "{i}Etiqueta{/i}", "fake")
+        cache.save()
+        with mock.patch.object(self.pipeline, "create_engine", return_value=mock.Mock(label="X")), \
+                mock.patch.object(self.pipeline, "translate_pending") as tp:
+            self.assertEqual(self.pipeline.retry_failed_validation(self.info, self.ws, "spanish", "gemini", {}), 0)
+        tp.assert_not_called()
+        self.assertFalse(self.ws.backups.exists() and list(self.ws.backups.glob("*.json")))
+
+    def test_missing_key_changes_nothing(self):
+        with mock.patch.object(self.pipeline, "create_engine", side_effect=EngineError("Falta la clave", fatal=True)):
+            with self.assertRaises(EngineError):
+                self.pipeline.retry_failed_validation(self.info, self.ws, "spanish", "gemini", {})
+        self.assertEqual(Cache(self.ws.cache_file).get("{i}Bad tag{/i}"), "Etiqueta mala")
+
+
+class HelpAndTutorialTests(unittest.TestCase):
+    def test_tutorials_exist_in_both_languages_and_cover_the_main_features(self):
+        from traductor import help_text
+
+        for lang, needles in (
+            ("es", ("Reintentar las que fallaron la validacion", "Peticiones simultaneas", "Credito en el juego",
+                    "Ejecutar de todas formas", "Avisar al terminar")),
+            ("en", ("Retry the lines that failed validation", "Simultaneous requests", "Credit in the game",
+                    "Run anyway", "Notify when done")),
+        ):
+            path = help_text.tutorial_path(lang)
+            self.assertIsNotNone(path, lang)
+            text = path.read_text(encoding="utf-8")
+            for needle in needles:
+                self.assertIn(needle, text, f"{lang}: falta «{needle}» en el tutorial")
+
+    def test_in_app_help_mentions_the_new_features(self):
+        from traductor.help_text import HELP_EN, HELP_ES
+
+        for text in (HELP_ES, HELP_EN):
+            self.assertTrue(len(text) > 1500)
+        HELP_ES, HELP_EN = " ".join(HELP_ES.split()), " ".join(HELP_EN.split())  # el texto se parte en renglones
+        for needle in ("Reintentar las que fallaron la validación", "Peticiones simultáneas", "Crédito en el juego",
+                       "Avisar al terminar", "Windows protegió su PC"):
+            self.assertIn(needle, HELP_ES)
+        for needle in ("Retry the lines that failed validation", "Simultaneous requests", "Credit in the game",
+                       "Notify when done", "Windows protected your PC"):
+            self.assertIn(needle, HELP_EN)
+
+    def test_help_button_labels_exist_in_the_interface(self):
+        from traductor import i18n_en
+
+        # lo que la ayuda en inglés llama «Retry the lines that failed validation» es el texto real del botón
+        self.assertEqual(i18n_en.EN["Reintentar las que fallaron la validación"], "Retry the lines that failed validation")
+        self.assertEqual(i18n_en.EN["Peticiones simultáneas"], "Simultaneous requests")
+        self.assertEqual(i18n_en.EN["Crédito en el juego (opcional)"].split(" (")[0], "Credit in the game")
+        self.assertEqual(i18n_en.EN["Avisar al terminar"], "Notify when done")
+
+
 if __name__ == "__main__":
     unittest.main()

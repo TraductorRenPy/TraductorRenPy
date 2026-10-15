@@ -1,5 +1,6 @@
 """Ventana principal (tkinter): guía paso a paso y modo automático."""
 
+import os
 import queue
 import subprocess
 import sys
@@ -19,109 +20,8 @@ from .glossary import Glossary, find_characters, suggest_terms
 from .i18n import tr
 from .pending import TlReport
 from . import translate
+from .help_text import HELP_EN, HELP_ES, tutorial_path
 from .translate import Cache, apply_cache
-
-HELP_ES = """\
-CÓMO TRADUCIR UN JUEGO
-
-1. Elige la carpeta del juego
-   La que contiene la carpeta «game» (puede estar dentro de otras carpetas).
-
-2. Elige el idioma de la traducción, tu motor y pega tu clave
-   Gemini (Google) tiene nivel gratuito. El botón «Conseguir clave…» abre la
-   página donde se crea. Cada persona usa su propia clave, que se guarda cifrada
-   solo en este equipo.
-
-3. Pulsa «▶ Traducir este juego automáticamente»
-   La app hace todos los pasos y solo te pregunta lo necesario:
-   • si tienes una versión anterior ya traducida (para aprovecharla),
-   • si quieres gastar tu API en lo que falta (te dice cuántos textos son),
-   • si quieres instalar la traducción en el juego.
-
-4. Abre el juego
-   Debe iniciar en el idioma elegido. Si algo no te gusta, se puede deshacer
-   (ver abajo).
-
-LA LISTA «QUÉ HACER AHORA»
-Muestra cada paso con ✓ (hecho), ▶ (el que sigue) o · (pendiente). El botón
-«Hacer el siguiente paso» ejecuta justo el que toca. Puedes parar y seguir otro
-día: la app recuerda dónde ibas.
-
-QUÉ TOCA LA APP EN TU JUEGO
-• Escribe la traducción en game/tl/<idioma>/ y crea game/zz_<idioma>.rpy.
-• Antes de escribir, guarda un respaldo en la carpeta de trabajo (subcarpeta
-  «respaldos»). Para deshacer, copia ese respaldo de vuelta sobre game/tl/<idioma>.
-• Los scripts del juego no se modifican.
-
-REN'PY SDK
-Hace falta el Ren'Py SDK (gratis, renpy.org). La app intenta encontrarlo sola;
-si no, usa el botón «Buscar SDK».
-
-TEXTO DENTRO DE IMÁGENES
-Las letras dibujadas dentro de una imagen (carteles, fondos con texto) no se
-pueden traducir con esta app; solo el texto que el juego escribe como texto.
-
-USO RESPONSABLE
-Traduce solo juegos que tengas derecho a traducir y no compartas los scripts
-extraídos ni las traducciones de juegos ajenos sin permiso de sus autores.
-
-PASO A PASO (MANUAL)
-Debajo hay un botón por cada paso, por si quieres repetir uno o hacerlo a mano.
-«Usar una traducción anterior» sirve también con parches de traducción de otras
-personas: elige su carpeta y la app toma lo ya traducido y traduce solo lo que falte.
-"""
-
-HELP_EN = """\
-HOW TO TRANSLATE A GAME
-
-1. Choose the game folder
-   The one that contains the "game" folder (it can be inside other folders).
-
-2. Choose the translation language and your engine, and paste your key
-   Gemini (Google) has a free tier. The "Get key…" button opens the page where
-   it is created. Everyone uses their own key, which is stored encrypted only
-   on this computer.
-
-3. Press "▶ Translate this game automatically"
-   The app runs every step and only asks what it needs:
-   • whether you have an earlier translated version (to reuse it),
-   • whether you want to spend your API quota on what is missing (it tells you
-     how many texts that is),
-   • whether you want to install the translation into the game.
-
-4. Open the game
-   It should start in the chosen language. If you don't like something it can be
-   undone (see below).
-
-THE "WHAT TO DO NOW" LIST
-It shows each step as ✓ (done), ▶ (next) or · (pending). The "Do the next step"
-button runs exactly the one that is due. You can stop and continue another day:
-the app remembers where you were.
-
-WHAT THE APP TOUCHES IN YOUR GAME
-• It writes the translation into game/tl/<language>/ and creates game/zz_<language>.rpy.
-• Before writing, it saves a backup in the work folder ("respaldos" subfolder).
-  To undo, copy that backup back over game/tl/<language>.
-• The game's scripts are never modified.
-
-REN'PY SDK
-The Ren'Py SDK (free, renpy.org) is required. The app tries to find it by
-itself; if it can't, use the "Find SDK" button.
-
-TEXT INSIDE IMAGES
-Letters drawn inside an image (signs, backgrounds with text) cannot be
-translated with this app; only text the game writes as text.
-
-RESPONSIBLE USE
-Only translate games you have the right to translate, and do not share extracted
-scripts or translations of other people's games without their authors' permission.
-
-STEP BY STEP (MANUAL)
-Below there is one button per step, in case you want to repeat one or do it by
-hand. "Use an earlier translation" also works with translation patches made by
-other people: pick their folder and the app takes what is already translated and
-translates only what is missing.
-"""
 
 _ICONS = {"hecho": "✓", "omitido": "–", "siguiente": "▶", "pendiente": "·"}
 UI_CHOICES = [("auto", "Automático / Auto"), ("es", "Español"), ("en", "English")]
@@ -322,6 +222,9 @@ class App(tk.Tk):
             b = ttk.Button(row_a if i <= 5 else row_b, text=f"{i}. {tr(step.title)}", command=actions[step.id])
             b.pack(side="left", padx=(0, 6))
             self.step_buttons.append(b)
+        retry = ttk.Button(row_a, text=tr("Reintentar las que fallaron la validación"), command=self.step_retry_failed)
+        retry.pack(side="right", padx=(6, 0))
+        self.step_buttons.append(retry)
         for text, cmd in [(tr("Ver pendientes"), self.step_pending), (tr("Caja de diálogo…"), self.open_ui_tweaks)]:
             b = ttk.Button(row_b, text=text, command=cmd)
             b.pack(side="right", padx=(6, 0))
@@ -419,10 +322,30 @@ class App(tk.Tk):
         win = tk.Toplevel(self)
         win.title(tr("Ayuda"))
         win.geometry("660x640")
+        bar = ttk.Frame(win)
+        bar.pack(side="bottom", fill="x", padx=8, pady=(0, 8))
+        ttk.Button(bar, text=tr("Abrir el tutorial completo (.txt)"), command=self.open_tutorial).pack(side="left")
+        ttk.Button(bar, text=tr("Cerrar"), command=win.destroy).pack(side="right")
         box = scrolledtext.ScrolledText(win, wrap="word", font=("Segoe UI", 10))
         box.pack(fill="both", expand=True, padx=8, pady=8)
         box.insert("1.0", HELP_EN if i18n.current() == "en" else HELP_ES)
         box.configure(state="disabled")
+
+    def open_tutorial(self):
+        """Abre el tutorial completo (.txt) con el programa predeterminado de Windows."""
+        path = tutorial_path(i18n.current())
+        if path is None:
+            messagebox.showinfo(
+                "TraductorRenPy", tr("No se encontró el archivo del tutorial. Está en la carpeta del programa.")
+            )
+            return
+        try:
+            if sys.platform == "win32":
+                os.startfile(str(path))
+            else:
+                webbrowser.open(path.as_uri())
+        except OSError:
+            messagebox.showinfo("TraductorRenPy", tr("No se pudo abrir el tutorial: {path}", path=path))
 
     def open_about(self):
         win = tk.Toplevel(self)
@@ -929,6 +852,28 @@ class App(tk.Tk):
         self._mark("glosario")
         self._mark("traducir")
 
+    def _act_retry_failed(self):
+        self._ensure_info()
+        n = len(pipeline.failed_validation_originals(self.info, self.ws, self._snap["language"]))
+        if not n:
+            self.log("No hay líneas que hayan fallado la validación.")
+            return
+        engine_label = ENGINES[self._snap["engine"]].label
+        if not self._ask(lambda: messagebox.askyesno(
+            tr("Reintentar las que fallaron la validación"),
+            tr("Se volverán a traducir {n} líneas que fallaron la validación, con {engine}.\n\n"
+               "Antes se guarda una copia de la caché. ¿Continuar?", n=n, engine=engine_label),
+        )):
+            self.log(tr("Cancelado por el usuario."))
+            return
+        pipeline.retry_failed_validation(
+            self.info, self.ws, self._snap["language"], self._snap["engine"], self.engines_cfg,
+            self._snap["batch"], self.log, self._set_progress, self.cancel, workers=self._snap["workers"],
+        )
+        report = pipeline.detect_pending(self.info, self.ws, self._snap["language"], self.log)
+        self.events.put(("call", lambda: self._show_report(report)))
+        self.log(tr("Listo. Pulsa «9. Revisar las traducciones» para ver cuántas pasan ahora."))
+
     def _act_validate(self):
         self._ensure_info()
         self._validated = pipeline.validate_translations(self.info, self.ws, self._snap["language"], self.log)
@@ -1097,6 +1042,9 @@ class App(tk.Tk):
 
     def step_translate(self):
         self._run("Traducir lo que falta", self._act_translate)
+
+    def step_retry_failed(self):
+        self._run("Reintentar las que fallaron la validación", self._act_retry_failed)
 
     def step_validate(self):
         self._run("Revisar las traducciones (sin escribir)", self._act_validate)

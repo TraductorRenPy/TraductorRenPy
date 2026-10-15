@@ -320,6 +320,49 @@ def count_to_translate(info: GameInfo, ws: Workspace, language: str) -> int:
     return sum(1 for u in units if cache.get(u.text) is None)
 
 
+def failed_validation_originals(info: GameInfo, ws: Workspace, language: str) -> List[str]:
+    """Textos originales cuya traducción en la caché no pasa la validación (sin escribir nada)."""
+    tl_dir = tl_dir_of(sdk_project_root(info, ws), language)
+    if not tl_dir.is_dir() or not ws.cache_file.is_file():
+        return []
+    glossary = suggest_glossary(info, ws, language)
+    result = install.apply_cache_to_tl(tl_dir, Cache(ws.cache_file), glossary)
+    return sorted({f.original for f in result.failed})
+
+
+def retry_failed_validation(
+    info: GameInfo,
+    ws: Workspace,
+    language: str,
+    engine_name: str,
+    engines_cfg: dict,
+    batch_size: int = 20,
+    log: LogFn = noop_log,
+    progress: Optional[ProgressFn] = None,
+    cancel: Optional[threading.Event] = None,
+    workers: int = 1,
+) -> int:
+    """Vuelve a traducir, con el motor elegido, las líneas que no pasaron la validación.
+
+    Esas traducciones están en la caché, así que «Traducir lo que falta» las daría por hechas: se quitan
+    de la caché (con copia de seguridad) y se traducen de nuevo. Devuelve cuántas se reintentaron."""
+    engine = create_engine(engine_name, engines_cfg, language)  # falla pronto si falta la clave
+    originals = failed_validation_originals(info, ws, language)
+    if not originals:
+        log("No hay líneas que hayan fallado la validación.")
+        return 0
+    ws.backups.mkdir(parents=True, exist_ok=True)
+    backup = ws.backups / f"traducciones_antes_de_reintentar_{time.strftime('%Y%m%d_%H%M%S')}.json"
+    shutil.copy2(ws.cache_file, backup)
+    cache = Cache(ws.cache_file)
+    removed = sum(1 for text in originals if cache.remove(text))
+    cache.save()
+    log(f"Copia de la caché: {backup}")
+    log(f"Se volverán a traducir {removed} líneas con {engine.label}.")
+    translate_pending(info, ws, language, engine_name, engines_cfg, batch_size, log, progress, cancel, workers=workers)
+    return removed
+
+
 def translate_pending(
     info: GameInfo,
     ws: Workspace,

@@ -161,6 +161,38 @@ class GuiSmokeTests(unittest.TestCase):
             app._notify_finished("Traducir", True, None, 120)
             self.assertEqual(alert.call_count, 2)  # desactivado
 
+    def test_retry_failed_validation_button_asks_before_retrying(self):
+        app = self.make_app("es")
+        self.assertIn("Reintentar las que fallaron la validación", button_texts(app))
+        app._take_snapshot()
+        with mock.patch.object(app, "_ensure_info"), \
+                mock.patch("traductor.pipeline.failed_validation_originals", return_value=["a", "b"]), \
+                mock.patch("traductor.pipeline.detect_pending"), \
+                mock.patch("traductor.pipeline.retry_failed_validation") as retry:
+            with mock.patch.object(app, "_ask", return_value=False):
+                app._act_retry_failed()
+            retry.assert_not_called()
+            with mock.patch.object(app, "_ask", return_value=True):
+                app._act_retry_failed()
+            retry.assert_called_once()
+        with mock.patch.object(app, "_ensure_info"), \
+                mock.patch("traductor.pipeline.failed_validation_originals", return_value=[]), \
+                mock.patch("traductor.pipeline.retry_failed_validation") as retry:
+            app._act_retry_failed()  # nada que reintentar: ni pregunta ni reintenta
+            retry.assert_not_called()
+
+    def test_help_window_has_a_button_that_opens_the_tutorial(self):
+        app = self.make_app("es")
+        app.open_help()
+        app.update()
+        with mock.patch("os.startfile", create=True) as start, mock.patch("webbrowser.open") as wb:
+            app.open_tutorial()
+        self.assertEqual(start.call_count + wb.call_count, 1)
+        with mock.patch("traductor.gui.tutorial_path", return_value=None), \
+                mock.patch("tkinter.messagebox.showinfo") as info:
+            app.open_tutorial()
+        info.assert_called_once()
+
     def test_target_language_selector(self):
         app = self.make_app("es")
         self.assertEqual(app._language(), "spanish")
