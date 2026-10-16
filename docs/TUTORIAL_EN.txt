@@ -182,6 +182,26 @@ The "Start over..." button offers three options, each with its explanation:
   (asks for confirmation). The game and what the application installed in it are not touched.
 
 
+9 quinquies. IMPROVE AN EXISTING TRANSLATION AND GAME NOTES
+-----------------------------------------------------------
+Many community translations were made without context (for example "pledging our friendly fraternity" rendered as
+"comprometer nuestra fraternidad amiga"). The "Improve existing translation..." button asks the AI to review them.
+- It works with Gemini or Grok (Microsoft Translator cannot review).
+- Each line is sent with the English original, the current translation, the scene around it (previous and next
+  lines, who speaks), the glossary and the "Game notes". The AI returns the same translation if it is fine and a
+  corrected one only if there is a real error (literal meaning, unnatural phrasing, agreement...).
+- Whatever fails validation (tags, variables, quotes) is discarded. What this same app wrote (zz_* files) is not
+  reviewed.
+- Nothing is written to the game when reviewing. Read the report with "View changes" (revision.txt in the work
+  folder: file and line, original, before and after) and, if you agree, press "Apply corrections": it makes a
+  backup and verifies that no identifier changes. Close the game first.
+- What is reviewed is saved (revision.json): you can stop and continue another day, and daily quotas lose nothing.
+- It costs time and API: in a game with 40,000 lines it is about 1,300 requests with batches of 30.
+- "Only files containing" limits the review to some files (for example "script" or "episode3").
+- "Game notes..." (also in the main window): say what the game is about, the setting and the vocabulary (for
+  example "pledge = to join a fraternity"). They are used when translating and reviewing, and improve the result a lot.
+
+
 10. UNDO
 --------
 Before writing, the application saves a backup in the "respaldos" subfolder of the work folder.

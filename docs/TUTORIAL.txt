@@ -182,6 +182,26 @@ El boton "Empezar de nuevo..." ofrece tres opciones, cada una con su explicacion
   (pide confirmacion). No se toca el juego ni lo que la aplicacion instalo en el.
 
 
+9 quinquies. MEJORAR UNA TRADUCCION EXISTENTE Y NOTAS DEL JUEGO
+-------------------------------------------------------------
+Muchas traducciones de comunidad se hicieron sin contexto (por ejemplo, "pledging our friendly fraternity" como
+"comprometer nuestra fraternidad amiga"). El boton "Mejorar traduccion existente..." pide a la IA que las revise.
+- Funciona con Gemini o Grok (Microsoft Translator no sabe revisar).
+- Cada linea se envia con el original en ingles, la traduccion actual, la escena que la rodea (lineas anteriores y
+  siguientes, quien habla), el glosario y las "Notas del juego". La IA devuelve la misma traduccion si esta bien y
+  una corregida solo si hay un error real (sentido literal, frases antinaturales, concordancia...).
+- Lo que no pasa la validacion (etiquetas, variables, comillas) se descarta. Lo que escribio esta misma app
+  (archivos zz_*) no se revisa.
+- Nada se escribe en el juego al revisar. Lee el informe con "Ver cambios" (revision.txt en la carpeta de
+  trabajo: archivo y linea, original, antes y despues) y, si te convence, pulsa "Aplicar correcciones": hace copia
+  de seguridad y verifica que no cambie ningun identificador. Cierra el juego antes.
+- Lo revisado se guarda (revision.json): puedes parar y seguir otro dia, y las cuotas diarias no hacen perder nada.
+- Cuesta tiempo y API: en un juego con 40.000 lineas son unas 1.300 peticiones con lotes de 30.
+- "Solo archivos que contengan" limita la revision a ciertos archivos (por ejemplo "script" o "episode3").
+- "Notas del juego..." (tambien en la ventana principal): cuenta de que trata el juego, el ambiente y el vocabulario
+  (por ejemplo "pledge = ingresar a una fraternidad"). Se usan al traducir y al revisar, y mejoran mucho el resultado.
+
+
 10. DESHACER
 ------------
 Antes de escribir, la aplicacion guarda un respaldo en la subcarpeta "respaldos" de la carpeta de trabajo.

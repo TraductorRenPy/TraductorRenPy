@@ -2,6 +2,11 @@
 
 ## 1.0.9
 
+- **Improve existing translation** (new button): asks Gemini or Grok to review every line of an already translated
+  game (e.g. a community translation made without context) with its scene, the glossary and the game notes, and to
+  fix only real errors. Reviewed lines are cached (`revision.json`, resumable), a readable report is written
+  (`revision.txt`) and nothing touches the game until you press "Apply corrections" (backup + verification).
+- **Game notes** (new button): per-game context (setting, vocabulary, tone) that is also used when translating.
 - Texts that a game shows through `"[variable]"` (character sheet descriptions, histories...) were never translated:
   Ren'Py translates the screen's text, not the variable's content. On install the app now creates
   `game/zz_dynamic_text.rpy` (a `config.replace_text` hook that translates each text fragment right before drawing

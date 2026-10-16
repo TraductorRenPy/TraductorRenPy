@@ -1,4 +1,5 @@
 import tempfile
+import time
 import tkinter as tk
 import unittest
 from pathlib import Path
@@ -334,6 +335,99 @@ class GuiSmokeTests(unittest.TestCase):
             self.assertNotIn(1500, scheduled)  # apagada: no se programa la consulta al abrir
             self._safe_destroy(self.make_app("es", check_updates=True))
             self.assertIn(1500, scheduled)
+
+    def _review_setup(self, app, engine="gemini"):
+        from types import SimpleNamespace
+
+        from traductor import pipeline
+
+        base = Path(self.tmp.name) / "ws-review"
+        base.mkdir(exist_ok=True)
+        app.info = SimpleNamespace(root=Path(self.tmp.name), game_dir=Path(self.tmp.name), tl_languages=["Spanish"],
+                                   name="Juego", need_collect=False)
+        app.ws = pipeline.Workspace(base)
+        app._snap = {"language": "Spanish", "engine": engine, "batch": 20}
+        return base
+
+    @staticmethod
+    def _top_levels(app):
+        return [w for w in app.winfo_children() if isinstance(w, tk.Toplevel)]
+
+    def test_improve_existing_translation_dialog_confirms_before_spending_the_api(self):
+        app = self.make_app("es")
+        self.assertIn("Mejorar traducción existente…", button_texts(app))
+        self.assertIn("Notas del juego…", button_texts(app))
+        self._review_setup(app)
+        stats = {"total": 10, "reviewed": 4, "pending": 6, "changed": 1, "rejected": 0, "requests": 1}
+        with mock.patch.object(app, "_game_ready", return_value=True), \
+                mock.patch("traductor.pipeline.review_status", return_value=stats):
+            app.open_review()
+            time.sleep(0.4)  # deja que corra el cálculo que se programa 150 ms después de abrir la ventana
+            app.update()
+            win = self._top_levels(app)[-1]
+            texts = button_texts(win)
+            for label in ("Ver cambios", "Aplicar correcciones", "Cerrar"):
+                self.assertIn(label, texts)
+            start = next(w for w in all_widgets(win) if w.winfo_class() == "TButton" and "Revisar con" in w.cget("text"))
+            with mock.patch("tkinter.messagebox.askyesno", return_value=False) as ask, \
+                    mock.patch.object(app, "_run") as run:
+                win.update()
+                start.invoke()
+            ask.assert_called_once()
+            run.assert_not_called()  # sin confirmar no se gasta nada
+            with mock.patch("tkinter.messagebox.askyesno", return_value=True), mock.patch.object(app, "_run") as run:
+                start.invoke()
+            run.assert_called_once()
+            self.assertEqual(run.call_args.args[0], "Mejorar la traducción existente")
+
+    def test_microsoft_cannot_start_a_review(self):
+        app = self.make_app("es")
+        self._review_setup(app, engine="microsoft")
+        stats = {"total": 3, "reviewed": 0, "pending": 3, "changed": 0, "rejected": 0, "requests": 1}
+        with mock.patch.object(app, "_game_ready", return_value=True), \
+                mock.patch("traductor.pipeline.review_status", return_value=stats):
+            app.open_review()
+            app.update()
+            win = self._top_levels(app)[-1]
+            start = next(w for w in all_widgets(win) if w.winfo_class() == "TButton" and "Revisar con" in w.cget("text"))
+            self.assertIn("disabled", start.state())
+
+    def test_notes_are_saved_per_game(self):
+        from traductor import pipeline
+
+        app = self.make_app("es")
+        self._review_setup(app)
+        with mock.patch.object(app, "_game_ready", return_value=True):
+            app.open_notes()
+            app.update()
+            win = self._top_levels(app)[-1]
+            box = next(w for w in all_widgets(win) if isinstance(w, tk.Text))
+            box.insert("1.0", "Novela universitaria. pledge = ingresar")
+            save = next(w for w in all_widgets(win) if w.winfo_class() == "TButton" and w.cget("text") == "Guardar")
+            save.invoke()
+        self.assertEqual(pipeline.load_notes(app.ws), "Novela universitaria. pledge = ingresar")
+
+    def test_apply_corrections_asks_first_and_runs_the_apply_step(self):
+        from traductor import review
+
+        app = self.make_app("es")
+        base = self._review_setup(app)
+        cache = review.ReviewCache(base / "revision.json")
+        cache.put("Hello", "Hola mal", "Hola bien", "fake")
+        cache.save()
+        stats = {"total": 1, "reviewed": 1, "pending": 0, "changed": 1, "rejected": 0, "requests": 0}
+        with mock.patch.object(app, "_game_ready", return_value=True), \
+                mock.patch("traductor.pipeline.review_status", return_value=stats):
+            app.open_review()
+            app.update()
+            win = self._top_levels(app)[-1]
+            apply_btn = next(w for w in all_widgets(win) if w.winfo_class() == "TButton" and w.cget("text") == "Aplicar correcciones")
+            with mock.patch("tkinter.messagebox.askyesno", return_value=False), mock.patch.object(app, "_run") as run:
+                apply_btn.invoke()
+            run.assert_not_called()
+            with mock.patch("tkinter.messagebox.askyesno", return_value=True), mock.patch.object(app, "_run") as run:
+                apply_btn.invoke()
+            self.assertEqual(run.call_args.args[0], "Aplicar las correcciones")
 
     def test_target_language_selector(self):
         app = self.make_app("es")

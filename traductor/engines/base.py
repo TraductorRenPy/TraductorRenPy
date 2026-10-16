@@ -56,6 +56,7 @@ class Item:
     id: str  # identificador dentro del lote
     text: str
     who: Optional[str] = None  # nombre del personaje que habla
+    current: str = ""  # traducción que ya existe (solo al REVISAR una traducción)
 
 
 @dataclass
@@ -83,6 +84,8 @@ class Engine:
     min_interval = 0.0  # segundos mínimos entre llamadas (límites del nivel gratuito)
     _last_call: Optional[float] = None
     target = languages.get(languages.DEFAULT)  # idioma destino (lo fija create_engine)
+    notes = ""  # notas del juego escritas por quien traduce (contexto, terminología, tono)
+    can_review = False  # ¿sabe revisar una traducción existente? (solo los motores de IA)
 
     def _throttle(self) -> None:
         interval = float(self.cfg.get("min_interval", self.min_interval))
@@ -95,6 +98,10 @@ class Engine:
     def translate(self, batch: Batch) -> Dict[str, str]:
         """Devuelve {id: traducción}. Puede omitir ids que no pudo traducir."""
         raise NotImplementedError
+
+    def review(self, batch: Batch) -> Dict[str, str]:
+        """Devuelve {id: traducción final} revisando `item.current`; igual a `current` si estaba bien."""
+        raise EngineError(f"{self.label} no sabe revisar traducciones; usa Gemini o Grok.", fatal=True)
 
 
 def post_json(

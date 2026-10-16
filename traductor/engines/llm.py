@@ -20,9 +20,42 @@ Input is a JSON object with "speakers" (optional), "glossary", "context_before",
 Reply with ONLY a JSON object: {"translations": [{"id": "<id>", "text": "<translated text>"}, ...]} with exactly one entry per item id."""
 
 
-def system_prompt(target) -> str:
-    """Prompt del sistema para el idioma destino (un `languages.Language`)."""
-    return SYSTEM_PROMPT.replace("@TARGET@", target.prompt)
+REVIEW_PROMPT = """You are a senior video game localization editor. You review an EXISTING @TARGET@ translation of a Ren'Py visual novel. For each item you get the English original ("text") and the current translation ("current"), written by someone else, often with no context.
+
+Fix ONLY real problems:
+- wrong meaning: literal or word-for-word renderings, false friends, idioms and game/story jargon taken literally (for example "to pledge a fraternity" is to join it, not to "compromise" it);
+- unnatural or ungrammatical phrasing, wrong register, wrong gender or number agreement, names or terms that do not follow the glossary, untranslated English left behind.
+Keep the wording and style of the current translation whenever it is acceptable: do not rewrite for taste. If the current translation is fine, return it EXACTLY unchanged.
+
+Rules:
+- Use the scene ("context_before", "context_after", "speaker") to understand who speaks to whom and what is going on. Context lines are reference only: never return them.
+- The game may contain mature or explicit content: keep its intensity, do not censor or soften it.
+- Keep these tokens EXACTLY as they appear in the original, in a sensible position: Ren'Py tags like {i} {/i} {w} {p=0.5} {color=#fff}, interpolations like [name] or [player.name], format codes like %s %d %(x)s, and the escapes \\n, \\t and \\" (a backslash followed by a double quote is a literal quote and must stay as \\").
+- Glossary terms: when a term has a "translation", always use exactly that. When it has "keep": true, leave the term unchanged.
+- Do not add, merge, split or omit lines. Do not add notes or explanations.
+
+Input is a JSON object with "glossary", "context_before", "items" and "context_after". Each item has "id", "speaker" (may be null for narration), "text" (English original) and "current" (existing translation).
+Reply with ONLY a JSON object: {"translations": [{"id": "<id>", "text": "<final translation>"}, ...]} with exactly one entry per item id: the unchanged current translation or your corrected version."""
+
+_NOTES_HEADER = (
+    "\n\nNotes about this game, written by the person translating it. Use them for context, terminology and tone; "
+    "they are not part of the text to translate:\n"
+)
+
+
+def _with_notes(prompt: str, notes: str) -> str:
+    notes = (notes or "").strip()
+    return prompt + _NOTES_HEADER + notes if notes else prompt
+
+
+def system_prompt(target, notes: str = "") -> str:
+    """Prompt del sistema para el idioma destino (un `languages.Language`), con las notas del juego si hay."""
+    return _with_notes(SYSTEM_PROMPT.replace("@TARGET@", target.prompt), notes)
+
+
+def review_system_prompt(target, notes: str = "") -> str:
+    """Prompt para REVISAR una traducción ya existente (no traducir desde cero)."""
+    return _with_notes(REVIEW_PROMPT.replace("@TARGET@", target.prompt), notes)
 
 
 def build_user_message(batch: Batch) -> str:
@@ -38,6 +71,15 @@ def build_user_message(batch: Batch) -> str:
         "items": [{"id": i.id, "speaker": i.who, "text": i.text} for i in batch.items],
         "context_after": lines(batch.after),
     }
+    return json.dumps(payload, ensure_ascii=False)
+
+
+def build_review_message(batch: Batch) -> str:
+    """Como build_user_message, pero cada item lleva también la traducción actual."""
+    payload = json.loads(build_user_message(batch))
+    payload["items"] = [
+        {"id": i.id, "speaker": i.who, "text": i.text, "current": i.current} for i in batch.items
+    ]
     return json.dumps(payload, ensure_ascii=False)
 
 
@@ -68,7 +110,24 @@ def parse_translations(raw: str) -> Dict[str, str]:
     return out
 
 
-class GrokEngine(Engine):
+class LLMEngine(Engine):
+    """Base de los motores de IA: traducir y revisar usan el mismo transporte con distinto prompt."""
+
+    can_review = True
+
+    def _complete(self, system: str, user: str) -> str:
+        raise NotImplementedError
+
+    def translate(self, batch: Batch) -> Dict[str, str]:
+        return parse_translations(self._complete(system_prompt(self.target, self.notes), build_user_message(batch)))
+
+    def review(self, batch: Batch) -> Dict[str, str]:
+        return parse_translations(
+            self._complete(review_system_prompt(self.target, self.notes), build_review_message(batch))
+        )
+
+
+class GrokEngine(LLMEngine):
     """API de xAI, compatible con OpenAI (`/chat/completions`)."""
 
     name = "grok"
@@ -80,14 +139,14 @@ class GrokEngine(Engine):
         "aparte de la suscripción de Grok). 3) En API Keys pulsa Create y copia la clave (xai-…)."
     )
 
-    def translate(self, batch: Batch) -> Dict[str, str]:
+    def _complete(self, system: str, user: str) -> str:
         payload = {
             "model": self.cfg["model"],
             "temperature": 0.3,
             "response_format": {"type": "json_object"},
             "messages": [
-                {"role": "system", "content": system_prompt(self.target)},
-                {"role": "user", "content": build_user_message(batch)},
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
             ],
         }
         data = post_json(
@@ -99,10 +158,10 @@ class GrokEngine(Engine):
             content = data["choices"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError):
             raise BadResponse("Respuesta de Grok sin contenido.")
-        return parse_translations(content or "")
+        return content or ""
 
 
-class GeminiEngine(Engine):
+class GeminiEngine(LLMEngine):
     name = "gemini"
     label = "Gemini (Google)"
     defaults = {
@@ -122,10 +181,10 @@ class GeminiEngine(Engine):
         "HARM_CATEGORY_DANGEROUS_CONTENT",
     ]
 
-    def translate(self, batch: Batch) -> Dict[str, str]:
+    def _complete(self, system: str, user: str) -> str:
         payload = {
-            "systemInstruction": {"parts": [{"text": system_prompt(self.target)}]},
-            "contents": [{"role": "user", "parts": [{"text": build_user_message(batch)}]}],
+            "systemInstruction": {"parts": [{"text": system}]},
+            "contents": [{"role": "user", "parts": [{"text": user}]}],
             "generationConfig": {"temperature": 0.3, "responseMimeType": "application/json"},
             "safetySettings": [
                 {"category": c, "threshold": "BLOCK_NONE"} for c in self._SAFETY
@@ -142,4 +201,4 @@ class GeminiEngine(Engine):
             reason = (data.get("promptFeedback") or {}).get("blockReason", "sin candidatos")
             raise BadResponse(f"Gemini no devolvió traducción ({reason}).")
         parts = (candidates[0].get("content") or {}).get("parts") or []
-        return parse_translations("".join(p.get("text", "") for p in parts))
+        return "".join(p.get("text", "") for p in parts)

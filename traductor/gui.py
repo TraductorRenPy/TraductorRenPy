@@ -13,7 +13,7 @@ import webbrowser
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 from typing import Callable, Optional
 
-from . import __version__, about, eta, fonts, i18n, languages, notify, pipeline, report, sdk, settings, uitweaks, updates, workflow
+from . import __version__, about, eta, fonts, i18n, languages, notify, pipeline, report, review, sdk, settings, uitweaks, updates, workflow
 from .common import Cancelled
 from .detect import GameInfo, analyze, find_game_root
 from .engines import ENGINES, EngineError
@@ -239,10 +239,14 @@ class App(tk.Tk):
         retry = ttk.Button(row_a, text=tr("Reintentar las que fallaron la validación"), command=self.step_retry_failed)
         retry.pack(side="right", padx=(6, 0))
         self.step_buttons.append(retry)
+        improve = ttk.Button(row_a, text=tr("Mejorar traducción existente…"), command=self.open_review)
+        improve.pack(side="right", padx=(6, 0))
+        self.step_buttons.append(improve)
         for text, cmd in [
             (tr("Ver pendientes"), self.step_pending),
             (tr("Caja de diálogo…"), self.open_ui_tweaks),
             (tr("Fuentes del juego…"), self.step_fonts),
+            (tr("Notas del juego…"), self.open_notes),
         ]:
             b = ttk.Button(row_b, text=text, command=cmd)
             b.pack(side="right", padx=(6, 0))
@@ -435,6 +439,163 @@ class App(tk.Tk):
                 webbrowser.open(path.as_uri())
         except OSError:
             messagebox.showinfo("TraductorRenPy", tr("No se pudo abrir el tutorial: {path}", path=path))
+
+    # --- notas del juego y mejora de la traducción existente ------------------------------------------
+
+    def _game_ready(self) -> bool:
+        """Prepara el juego, su carpeta de trabajo y el nombre exacto del idioma para las ventanas siguientes."""
+        if self.busy:
+            messagebox.showinfo("TraductorRenPy", tr("Espera a que termine el trabajo en curso o cancélalo."))
+            return False
+        try:
+            self._ensure_info_sync()
+        except Exception:
+            messagebox.showwarning("TraductorRenPy", tr("Elige primero la carpeta del juego."))
+            return False
+        self._take_snapshot()
+        self._use_existing_language_name()
+        return True
+
+    def open_notes(self):
+        """Notas del juego (contexto, vocabulario, tono): la IA las usa al traducir y al revisar."""
+        if not self._game_ready():
+            return
+        win = tk.Toplevel(self)
+        win.title(tr("Notas del juego"))
+        win.geometry("640x400")
+        ttk.Label(
+            win,
+            text=tr("Cuenta de qué trata el juego, el ambiente, el vocabulario especial y el tono. La IA lo usa como "
+                    "contexto al traducir y al revisar. Ejemplo: «Novela universitaria con fraternidades. pledge = "
+                    "ingresar a una fraternidad. Tono juvenil y coloquial.»"),
+            wraplength=600, justify="left",
+        ).pack(anchor="w", padx=12, pady=(12, 4))
+        box = tk.Text(win, wrap="word", height=12)
+        box.pack(fill="both", expand=True, padx=12, pady=4)
+        box.insert("1.0", pipeline.load_notes(self.ws))
+
+        def save():
+            pipeline.save_notes(self.ws, box.get("1.0", "end"))
+            self.log(tr("Notas del juego guardadas."))
+            win.destroy()
+
+        bar = ttk.Frame(win)
+        bar.pack(pady=8)
+        ttk.Button(bar, text=tr("Guardar"), command=save).pack(side="left", padx=4)
+        ttk.Button(bar, text=tr("Cancelar"), command=win.destroy).pack(side="left", padx=4)
+
+    def open_review(self):
+        """Ventana «Mejorar traducción existente»: revisar con IA, ver los cambios y aplicarlos."""
+        if not self._game_ready():
+            return
+        engine_cls = ENGINES[self._snap["engine"]]
+        win = tk.Toplevel(self)
+        win.title(tr("Mejorar la traducción existente"))
+        win.geometry("700x470")
+        ttk.Label(win, text=tr("Mejorar la traducción existente"), font=("Segoe UI", 12, "bold")).pack(
+            anchor="w", padx=14, pady=(12, 2)
+        )
+        ttk.Label(
+            win,
+            text=tr("La IA revisa cada línea ya traducida (por ejemplo, la de la comunidad), con su escena como "
+                    "contexto, y propone otra versión solo donde hay un error real: sentido literal, frases "
+                    "antinaturales, concordancia... Si estaba bien, la deja igual. Nada se escribe en el juego hasta "
+                    "que lo apliques, y antes puedes leer el informe de cambios. Lo revisado se guarda: puedes parar "
+                    "y seguir otro día."),
+            wraplength=660, justify="left",
+        ).pack(anchor="w", padx=14, pady=(0, 6))
+        only_var = tk.StringVar()
+        row = ttk.Frame(win)
+        row.pack(fill="x", padx=14, pady=2)
+        ttk.Label(row, text=tr("Solo archivos que contengan (opcional):")).pack(side="left")
+        ttk.Entry(row, textvariable=only_var, width=24).pack(side="left", padx=6)
+        ttk.Button(row, text=tr("Notas del juego…"), command=self.open_notes).pack(side="right")
+        status = ttk.Label(win, text=tr("Calculando…"), foreground="#0b57d0", wraplength=660, justify="left")
+        status.pack(anchor="w", padx=14, pady=8)
+        if not engine_cls.can_review:
+            ttk.Label(
+                win, foreground="#b3261e", wraplength=660, justify="left",
+                text=tr("{engine} no sabe revisar traducciones: elige Gemini o Grok como motor.", engine=engine_cls.label),
+            ).pack(anchor="w", padx=14)
+
+        def refresh(*_):
+            try:
+                st = pipeline.review_status(
+                    self.info, self.ws, self._snap["language"], only_var.get().strip(), self._snap["batch"]
+                )
+            except Exception as exc:
+                status.configure(text=str(exc))
+                return
+            status.configure(text=tr(
+                "{total} líneas traducidas por revisar · {reviewed} ya revisadas · {changed} con cambios sugeridos · "
+                "unas {requests} peticiones pendientes.", **st))
+            self._review_stats = st
+
+        win.after(150, refresh)
+        only_var.trace_add("write", lambda *a: win.after(400, refresh))
+
+        def start():
+            st = getattr(self, "_review_stats", None)
+            if not st or not st["pending"]:
+                messagebox.showinfo("TraductorRenPy", tr("No hay líneas pendientes de revisar."), parent=win)
+                return
+            if not messagebox.askyesno(
+                tr("Mejorar la traducción existente"),
+                tr("Se revisarán {n} líneas (unas {r} peticiones a {engine}). Puedes parar y seguir otro día. "
+                   "¿Continuar?", n=st["pending"], r=st["requests"], engine=engine_cls.label),
+                parent=win,
+            ):
+                return
+            only = only_var.get().strip()
+            win.destroy()
+            self._run("Mejorar la traducción existente", lambda: self._act_review(only))
+
+        def show():
+            path = self.ws.review_report_file
+            if not path.is_file():
+                messagebox.showinfo("TraductorRenPy", tr("Todavía no hay informe: primero revisa la traducción."), parent=win)
+                return
+            try:
+                os.startfile(str(path)) if sys.platform == "win32" else webbrowser.open(path.as_uri())
+            except OSError:
+                messagebox.showinfo("TraductorRenPy", str(path), parent=win)
+
+        def apply():
+            n = len(review.ReviewCache(self.ws.review_cache_file).changed())
+            if not n:
+                messagebox.showinfo("TraductorRenPy", tr("No hay correcciones por aplicar."), parent=win)
+                return
+            if not messagebox.askyesno(
+                tr("Aplicar las correcciones"),
+                tr("Se escribirán hasta {n} correcciones en la traducción del juego, con copia de seguridad previa. "
+                   "Cierra el juego antes. ¿Continuar?", n=n),
+                parent=win,
+            ):
+                return
+            win.destroy()
+            self._run("Aplicar las correcciones", self._act_apply_review)
+
+        bar = ttk.Frame(win)
+        bar.pack(side="bottom", pady=12)
+        start_btn = ttk.Button(bar, text=tr("Revisar con {engine}", engine=engine_cls.label), command=start)
+        start_btn.pack(side="left", padx=4)
+        if not engine_cls.can_review:
+            start_btn.state(["disabled"])
+        ttk.Button(bar, text=tr("Ver cambios"), command=show).pack(side="left", padx=4)
+        ttk.Button(bar, text=tr("Aplicar correcciones"), command=apply).pack(side="left", padx=4)
+        ttk.Button(bar, text=tr("Cerrar"), command=win.destroy).pack(side="left", padx=4)
+
+    def _act_review(self, only: str):
+        self._ensure_info()
+        pipeline.review_translations(
+            self.info, self.ws, self._snap["language"], self._snap["engine"], self.engines_cfg,
+            self._snap["batch"], only, self.log, self._set_progress, self.cancel,
+        )
+        self.log(tr("Listo. Abre «Mejorar traducción existente…» para ver los cambios y aplicarlos."))
+
+    def _act_apply_review(self):
+        self._ensure_info()
+        pipeline.apply_review(self.info, self.ws, self._snap["language"], self.log)
 
     def _check_updates_async(self, manual: bool = False):
         """Consulta la última versión en segundo plano; `manual` = lo pidió el usuario (siempre responde)."""

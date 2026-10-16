@@ -16,11 +16,11 @@ from pathlib import Path
 from typing import List, Optional
 
 from . import credit as credit_mod
-from . import dynamic
+from . import dynamic, review
 from . import decompile, extras, importer, install, rpa, sdk
 from .common import LogFn, ProgressFn, check_cancel, noop_log
 from .detect import GameInfo, source_key
-from .engines import create_engine
+from .engines import EngineError, create_engine
 from .glossary import Glossary, Term, find_characters, find_game_titles, suggest_terms
 from .pending import TlReport, scan_tl
 from .translate import Cache, build_units, run_job
@@ -49,6 +49,18 @@ class Workspace:
     @property
     def cache_file(self) -> Path:
         return self.base / "traducciones.json"
+
+    @property
+    def notes_file(self) -> Path:
+        return self.base / "notas.txt"
+
+    @property
+    def review_cache_file(self) -> Path:
+        return self.base / "revision.json"
+
+    @property
+    def review_report_file(self) -> Path:
+        return self.base / "revision.txt"
 
     @property
     def glossary_file(self) -> Path:
@@ -321,6 +333,108 @@ def count_to_translate(info: GameInfo, ws: Workspace, language: str) -> int:
     return sum(1 for u in units if cache.get(u.text) is None)
 
 
+def load_notes(ws: Workspace) -> str:
+    """Notas del juego escritas por quien traduce (contexto, terminología, tono); vacío si no hay."""
+    try:
+        return ws.notes_file.read_text(encoding="utf-8-sig").strip()
+    except OSError:
+        return ""
+
+
+def save_notes(ws: Workspace, text: str) -> None:
+    text = (text or "").strip()
+    if not text:
+        ws.notes_file.unlink(missing_ok=True)
+        return
+    ws.base.mkdir(parents=True, exist_ok=True)
+    install.write_text_file(ws.notes_file, text + "\n")
+
+
+# --- Mejorar una traducción existente ------------------------------------------------------------------
+
+def review_units(info: GameInfo, ws: Workspace, language: str, only: str = "") -> List[review.ReviewUnit]:
+    tl_dir = tl_dir_of(sdk_project_root(info, ws), language)
+    if not tl_dir.is_dir():
+        return []
+    return review.build_units(scan_tl(tl_dir), find_characters(script_dirs(info, ws)), only)
+
+
+def review_status(info: GameInfo, ws: Workspace, language: str, only: str = "", batch_size: int = 20) -> dict:
+    """Cuántas líneas hay por revisar, cuántas ya se revisaron y cuántas peticiones haría falta enviar."""
+    units = review_units(info, ws, language, only)
+    st = review.stats(units, review.ReviewCache(ws.review_cache_file))
+    st["requests"] = -(-st["pending"] // max(1, batch_size))
+    return st
+
+
+def review_translations(
+    info: GameInfo,
+    ws: Workspace,
+    language: str,
+    engine_name: str,
+    engines_cfg: dict,
+    batch_size: int = 20,
+    only: str = "",
+    log: LogFn = noop_log,
+    progress: Optional[ProgressFn] = None,
+    cancel: Optional[threading.Event] = None,
+):
+    """Pide al motor revisar la traducción existente, con contexto de escena y las notas del juego.
+    Guarda los resultados (revision.json) y un informe legible (revision.txt); NO toca el juego."""
+    engine = create_engine(engine_name, engines_cfg, language)
+    if not engine.can_review:
+        raise EngineError(f"{engine.label} no sabe revisar traducciones; usa Gemini o Grok.", fatal=True)
+    engine.notes = load_notes(ws)
+    units = review_units(info, ws, language, only)
+    if not units:
+        log("No hay líneas traducidas por revisar.")
+        return review.ReviewResult()
+    glossary = suggest_glossary(info, ws, language)
+    cache = review.ReviewCache(ws.review_cache_file)
+    log(f"Motor: {engine.label}. Glosario: {len(glossary.terms)} términos."
+        + (" Con notas del juego." if engine.notes else ""))
+    try:
+        result = review.run_review(units, engine, glossary, cache, batch_size, log, progress, cancel)
+    finally:
+        cache.save()
+        install.write_text_file(ws.review_report_file, review.report_text(units, cache))
+    st = review.stats(units, cache)
+    log(
+        f"Revisadas {result.reviewed} ahora ({st['reviewed']}/{st['total']} en total). Cambios sugeridos: "
+        f"{st['changed']}; descartados: {st['rejected']}; sin respuesta: {result.skipped}."
+    )
+    log(f"Informe de cambios: {ws.review_report_file}")
+    return result
+
+
+def apply_review(info: GameInfo, ws: Workspace, language: str, log: LogFn = noop_log) -> int:
+    """Escribe en el tl las correcciones de la revisión (con respaldo y verificación) y las lleva al juego."""
+    project = sdk_project_root(info, ws)
+    tl_dir = tl_dir_of(project, language)
+    if not tl_dir.is_dir():
+        raise FileNotFoundError(f"No existe {tl_dir}.")
+    changes = review.ReviewCache(ws.review_cache_file).changed()
+    if not changes:
+        log("No hay correcciones por aplicar: primero revisa la traducción.")
+        return 0
+    files, total = review.apply_to_tl(tl_dir, changes)
+    if not total:
+        log("Las correcciones ya están aplicadas (o esas líneas cambiaron desde la revisión).")
+        return 0
+    result = install.ApplyResult(applied=total, changes=files)
+    install.write_changes(result, tl_dir, ws.backups, f"tl_{language}_antes_de_mejorar", log)
+    real_tl = tl_dir_of(info.root, language)
+    if project != info.root:
+        install.backup_dir(real_tl, ws.backups, f"juego_tl_{language}", log)
+        shutil.copytree(tl_dir, real_tl, dirs_exist_ok=True, ignore=shutil.ignore_patterns("*.rpyc"))
+    for path in files:
+        stale = real_tl / path.relative_to(tl_dir).with_suffix(".rpyc")
+        if stale.exists():
+            stale.unlink()
+    log(f"Aplicadas {total} correcciones en {len(files)} archivos. Reinicia el juego para verlas.")
+    return total
+
+
 def failed_validation_originals(info: GameInfo, ws: Workspace, language: str) -> List[str]:
     """Textos originales cuya traducción en la caché no pasa la validación (sin escribir nada)."""
     tl_dir = tl_dir_of(sdk_project_root(info, ws), language)
@@ -379,6 +493,7 @@ def translate_pending(
     """Traduce los pendientes de tl/<idioma> con un motor y guarda la caché.
     `workers` > 1 = modo avanzado: varias peticiones a la vez (útil con cuentas de pago)."""
     engine = create_engine(engine_name, engines_cfg, language)  # falla pronto si falta la clave
+    engine.notes = load_notes(ws)
     report = detect_pending(info, ws, language, log)
     units = build_units(report, find_characters(script_dirs(info, ws)))
     if ws.glossary_file.is_file():

@@ -98,6 +98,19 @@ QUÉ TOCA LA APP EN TU JUEGO
   «respaldos»).
 • Los scripts del juego no se modifican.
 
+MEJORAR UNA TRADUCCIÓN EXISTENTE
+Muchas traducciones de comunidad se hicieron sin contexto y tienen errores (frases
+literales, tiempos verbales...). El botón «Mejorar traducción existente…» pide a la IA
+(Gemini o Grok) que revise cada línea ya traducida con su escena y las «Notas del
+juego», y que la corrija solo si hay un error real. Nada se escribe en el juego hasta
+que pulses «Aplicar correcciones» (con copia de seguridad); antes puedes leer el
+informe con «Ver cambios». Lo revisado se guarda, así que puedes parar y seguir otro
+día. Es largo y gasta API: en un juego grande son miles de peticiones.
+
+NOTAS DEL JUEGO
+«Notas del juego…» te deja contar de qué trata el juego, el ambiente y el vocabulario
+(p. ej. «pledge = ingresar a una fraternidad»). Se usan al traducir y al revisar.
+
 ACTUALIZACIONES
 Al abrir, la app consulta en GitHub si hay una versión nueva y, si la hay, muestra un
 aviso con el botón «Descargar» (abre la página del Release; no instala nada sola).
@@ -217,6 +230,19 @@ WHAT THE APP TOUCHES IN YOUR GAME
 • It writes the translation into game/tl/<language>/ and creates game/zz_<language>.rpy.
 • Before writing, it saves a backup in the work folder ("respaldos" subfolder).
 • The game's scripts are never modified.
+
+IMPROVE AN EXISTING TRANSLATION
+Many community translations were made without context and have mistakes (literal
+phrases, verb tenses...). The "Improve existing translation…" button asks the AI
+(Gemini or Grok) to review every translated line with its scene and the "Game notes",
+and to fix it only if there is a real error. Nothing is written to the game until you
+press "Apply corrections" (with a backup); before that you can read the report with
+"View changes". What is reviewed is saved, so you can stop and continue another day.
+It is long and spends API: in a big game it is thousands of requests.
+
+GAME NOTES
+"Game notes…" lets you say what the game is about, the setting and the vocabulary
+(e.g. "pledge = to join a fraternity"). They are used when translating and reviewing.
 
 UPDATES
 On start, the app checks GitHub for a newer version and, if there is one, shows a

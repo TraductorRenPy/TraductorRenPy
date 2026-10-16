@@ -110,6 +110,35 @@ EN = {
     "Tienes la última versión ({cur}).": "You have the latest version ({cur}).",
     "No se pudo comprobar ahora (sin internet o GitHub no respondió). Inténtalo más tarde.":
         "Could not check now (no internet or GitHub did not answer). Try again later.",
+    "Aplicar correcciones": "Apply corrections",
+    "Aplicar las correcciones": "Apply the corrections",
+    "Calculando…": "Calculating…",
+    "Cuenta de qué trata el juego, el ambiente, el vocabulario especial y el tono. La IA lo usa como contexto al traducir y al revisar. Ejemplo: «Novela universitaria con fraternidades. pledge = ingresar a una fraternidad. Tono juvenil y coloquial.»":
+        "Say what the game is about, the setting, the special vocabulary and the tone. The AI uses it as context when translating and reviewing. Example: \"University novel with fraternities. pledge = to join a fraternity. Youthful, colloquial tone.\"",
+    "Elige primero la carpeta del juego.": "Choose the game folder first.",
+    "La IA revisa cada línea ya traducida (por ejemplo, la de la comunidad), con su escena como contexto, y propone otra versión solo donde hay un error real: sentido literal, frases antinaturales, concordancia... Si estaba bien, la deja igual. Nada se escribe en el juego hasta que lo apliques, y antes puedes leer el informe de cambios. Lo revisado se guarda: puedes parar y seguir otro día.":
+        "The AI reviews every line that is already translated (for example the community's), with its scene as context, and proposes another version only where there is a real error: literal meaning, unnatural phrasing, agreement... If it was fine, it leaves it as it is. Nothing is written to the game until you apply it, and you can read the change report first. What is reviewed is saved: you can stop and continue another day.",
+    "Listo. Abre «Mejorar traducción existente…» para ver los cambios y aplicarlos.":
+        "Done. Open \"Improve existing translation…\" to see the changes and apply them.",
+    "Mejorar la traducción existente": "Improve the existing translation",
+    "Mejorar traducción existente…": "Improve existing translation…",
+    "No hay correcciones por aplicar.": "There are no corrections to apply.",
+    "No hay líneas pendientes de revisar.": "There are no lines left to review.",
+    "Notas del juego": "Game notes",
+    "Notas del juego guardadas.": "Game notes saved.",
+    "Notas del juego…": "Game notes…",
+    "Revisar con {engine}": "Review with {engine}",
+    "Se escribirán hasta {n} correcciones en la traducción del juego, con copia de seguridad previa. Cierra el juego antes. ¿Continuar?":
+        "Up to {n} corrections will be written into the game's translation, with a backup first. Close the game before. Continue?",
+    "Se revisarán {n} líneas (unas {r} peticiones a {engine}). Puedes parar y seguir otro día. ¿Continuar?":
+        "{n} lines will be reviewed (about {r} requests to {engine}). You can stop and continue another day. Continue?",
+    "Solo archivos que contengan (opcional):": "Only files containing (optional):",
+    "Todavía no hay informe: primero revisa la traducción.": "There is no report yet: review the translation first.",
+    "Ver cambios": "View changes",
+    "{engine} no sabe revisar traducciones: elige Gemini o Grok como motor.":
+        "{engine} cannot review translations: choose Gemini or Grok as the engine.",
+    "{total} líneas traducidas por revisar · {reviewed} ya revisadas · {changed} con cambios sugeridos · unas {requests} peticiones pendientes.":
+        "{total} translated lines to review · {reviewed} already reviewed · {changed} with suggested changes · about {requests} requests left.",
     "Reportar un problema": "Report a problem",
     "Dar opinión": "Give feedback",
     "Describe qué pasó (opcional):": "Describe what happened (optional):",
@@ -252,6 +281,19 @@ EN = {
 }
 
 LOG_PATTERNS = [
+    # mejorar la traducción existente
+    ("{n} líneas por revisar: {a} ya revisadas, {b} pendientes.", "{n} lines to review: {a} already reviewed, {b} pending."),
+    ("  Lote {n}/{m}: {a}/{b} revisadas.", "  Batch {n}/{m}: {a}/{b} reviewed."),
+    ("Revisadas {a} ahora ({b}/{c} en total). Cambios sugeridos: {d}; descartados: {e}; sin respuesta: {f}.",
+     "Reviewed {a} now ({b}/{c} in total). Suggested changes: {d}; discarded: {e}; no answer: {f}."),
+    ("Informe de cambios: {path}", "Change report: {path}"),
+    ("No hay líneas traducidas por revisar.", "There are no translated lines to review."),
+    ("No hay correcciones por aplicar: primero revisa la traducción.", "There are no corrections to apply: review the translation first."),
+    ("Las correcciones ya están aplicadas (o esas líneas cambiaron desde la revisión).",
+     "The corrections are already applied (or those lines changed since the review)."),
+    ("Aplicadas {a} correcciones en {b} archivos. Reinicia el juego para verlas.",
+     "Applied {a} corrections in {b} files. Restart the game to see them."),
+    ("Motor: {label}. Glosario: {n} términos. Con notas del juego.", "Engine: {label}. Glossary: {n} terms. With game notes."),
     # revisión de fuentes
     ("Fuentes: todas las que usa el juego dibujan bien este idioma.", "Fonts: all the fonts the game uses draw this language properly."),
     ("Fuentes: ya hay un reemplazo para las fuentes con problemas.", "Fonts: a replacement already exists for the problem fonts."),
