@@ -96,6 +96,13 @@ QUÉ TOCA LA APP EN TU JUEGO
   «respaldos»).
 • Los scripts del juego no se modifican.
 
+ACTUALIZACIONES
+Al abrir, la app consulta en GitHub si hay una versión nueva y, si la hay, muestra un
+aviso con el botón «Descargar» (abre la página del Release; no instala nada sola).
+Esa consulta revela tu IP a GitHub, como cualquier visita web, y no envía datos
+tuyos ni de tus juegos. Se apaga con la casilla «Buscar actualizaciones al abrir»;
+el botón «Buscar actualizaciones» está en «Acerca de».
+
 EMPEZAR DE NUEVO
 El botón «Empezar de nuevo…» ofrece tres cosas: limpiar solo la ventana, reiniciar la
 lista de este juego (se conserva lo traducido) o borrar todo lo de ese juego en la
@@ -206,6 +213,13 @@ WHAT THE APP TOUCHES IN YOUR GAME
 • It writes the translation into game/tl/<language>/ and creates game/zz_<language>.rpy.
 • Before writing, it saves a backup in the work folder ("respaldos" subfolder).
 • The game's scripts are never modified.
+
+UPDATES
+On start, the app checks GitHub for a newer version and, if there is one, shows a
+notice with a "Download" button (it opens the Release page; it installs nothing by
+itself). That check reveals your IP to GitHub, like any web visit, and sends no data
+about you or your games. Turn it off with the "Check for updates on start" checkbox;
+the "Check for updates" button is in "About".
 
 START OVER
 The "Start over…" button offers three things: just clear the window, restart this

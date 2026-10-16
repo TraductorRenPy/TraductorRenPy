@@ -186,7 +186,11 @@ To undo, copy that backup back over game/tl/<language>. The game's scripts are n
 
 10 bis. UPDATING THE APPLICATION
 --------------------------------
-There is no automatic update for now. To update, download the latest zip from
+On start, the application checks GitHub for the latest version and, if there is a newer one, shows a notice at
+the top with a "Download" button (it opens the Release page; it does NOT install anything by itself). That check
+reveals your IP to GitHub, like any web visit, and sends no data about you or your games. Turn it off with the
+"Check for updates on start" checkbox; the "Check for updates" button is in "About".
+To update, download the latest zip from
 https://github.com/TraductorRenPy/TraductorRenPy/releases/latest and replace the program folder. Your settings and
 your key are NOT lost: they are stored outside that folder (%APPDATA%\TraductorRenPy).
 
@@ -195,6 +199,7 @@ your key are NOT lost: they are stored outside that folder (%APPDATA%\TraductorR
 -----------
 - Your key is stored encrypted on your computer (folder %APPDATA%\TraductorRenPy) and is only sent to the
   service of the engine you choose. There is no telemetry.
+- On start, GitHub is asked whether there is a newer version (can be turned off). Nothing of yours is sent.
 - The game's texts are sent to the chosen engine to be translated: keep that in mind for games or content you
   do not want to share with a third party.
 - "Report a problem" prepares a report WITHOUT paths, e-mails or keys, and tries not to include lines of game

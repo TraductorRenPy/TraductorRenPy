@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from traductor import about, i18n, settings
+from traductor import about, i18n, settings, updates
 
 
 def all_widgets(widget):
@@ -27,12 +27,16 @@ class GuiSmokeTests(unittest.TestCase):
         self.addCleanup(patcher.stop)
         self.addCleanup(self.tmp.cleanup)
         self.addCleanup(i18n.set_language, "es")
+        check = mock.patch.object(updates, "check", return_value=(False, None))  # las pruebas no usan la red
+        self.check_mock = check.start()
+        self.addCleanup(check.stop)
 
-    def make_app(self, ui="es"):
+    def make_app(self, ui="es", **overrides):
         from traductor.gui import App
 
         cfg = settings.load()
         cfg["ui_language"] = ui
+        cfg.update(overrides)
         cfg["sdk_path"] = "no-existe"  # evita que busque el SDK real durante la prueba
         settings.save(cfg)
         try:
@@ -282,6 +286,54 @@ class GuiSmokeTests(unittest.TestCase):
                 app._do_reset("todo")
             self.assertFalse(base.exists())
         self.assertEqual(app.game_var.get(), "")
+
+    def test_update_notice_appears_only_when_a_newer_version_exists(self):
+        app = self.make_app("es")
+        self.assertFalse(app.update_bar.winfo_ismapped())
+        app._after_update_check(True, None, False)  # al día y sin pedirlo: nada que mostrar
+        app.update()
+        self.assertFalse(app.update_bar.winfo_ismapped())
+        info = updates.UpdateInfo("9.9.9", "https://github.com/u/r/releases/tag/v9.9.9")
+        app._after_update_check(True, info, False)
+        app.update()
+        self.assertTrue(app.update_bar.winfo_ismapped())
+        self.assertIn("9.9.9", app.update_label.cget("text"))
+        with mock.patch("webbrowser.open") as opened:
+            app.update_btn.invoke()
+        opened.assert_called_once_with(info.url)  # solo abre la página: no descarga nada
+
+    def test_manual_check_always_answers(self):
+        app = self.make_app("es")
+        with mock.patch("tkinter.messagebox.showinfo") as info:
+            app._after_update_check(True, None, True)
+            self.assertIn("última versión", info.call_args.args[1])
+            app._after_update_check(False, None, True)
+            self.assertIn("No se pudo comprobar", info.call_args.args[1])
+        newer = updates.UpdateInfo("9.9.9", "https://github.com/u/r/releases/tag/v9.9.9")
+        with mock.patch("tkinter.messagebox.askyesno", return_value=True), mock.patch("webbrowser.open") as opened:
+            app._after_update_check(True, newer, True)
+        opened.assert_called_once()
+
+    def test_startup_check_respects_the_setting(self):
+        app = self.make_app("es")
+        self.assertTrue(app.updates_var.get())  # activada por defecto
+        app.updates_var.set(False)
+        app._save_settings()
+        self.assertFalse(settings.load()["check_updates"])
+        from traductor.gui import App
+
+        scheduled = []
+        original = App._after
+
+        def spy(self, ms, fn):
+            scheduled.append(ms)
+            return original(self, ms, fn)
+
+        with mock.patch.object(App, "_after", spy):
+            self._safe_destroy(self.make_app("es", check_updates=False))
+            self.assertNotIn(1500, scheduled)  # apagada: no se programa la consulta al abrir
+            self._safe_destroy(self.make_app("es", check_updates=True))
+            self.assertIn(1500, scheduled)
 
     def test_target_language_selector(self):
         app = self.make_app("es")

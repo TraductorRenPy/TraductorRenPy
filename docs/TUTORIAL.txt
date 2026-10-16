@@ -185,7 +185,11 @@ Para deshacer, copia ese respaldo de vuelta sobre game/tl/<idioma>. Los scripts 
 
 10 bis. ACTUALIZAR LA APLICACION
 -------------------------------
-Por ahora no hay actualizacion automatica. Para actualizar, descarga el zip mas reciente desde
+Al abrir, la aplicacion consulta en GitHub cual es la ultima version y, si hay una mas nueva, muestra un aviso
+en la parte de arriba con el boton "Descargar" (abre la pagina del Release; NO instala nada sola). Esa consulta
+revela tu IP a GitHub, como cualquier visita web, y no envia datos tuyos ni de tus juegos. Se apaga con la casilla
+"Buscar actualizaciones al abrir"; el boton "Buscar actualizaciones" esta en "Acerca de".
+Para actualizar, descarga el zip mas reciente desde
 https://github.com/TraductorRenPy/TraductorRenPy/releases/latest y reemplaza la carpeta del programa. Tus ajustes y
 tu clave NO se pierden: se guardan fuera de esa carpeta (%APPDATA%\TraductorRenPy).
 
@@ -194,6 +198,7 @@ tu clave NO se pierden: se guardan fuera de esa carpeta (%APPDATA%\TraductorRenP
 --------------
 - Tu clave se guarda cifrada en tu equipo (carpeta %APPDATA%\TraductorRenPy) y solo se envia al servicio del
   motor que elijas. No hay telemetria.
+- Al abrir, se consulta a GitHub si hay una version nueva (se puede apagar). No se envia nada tuyo.
 - Los textos del juego se envian al motor elegido para traducirlos: tenlo en cuenta con juegos o contenidos
   que no quieras compartir con un tercero.
 - "Reportar un problema" prepara un informe SIN rutas, correos ni claves, e intenta no incluir lineas de texto

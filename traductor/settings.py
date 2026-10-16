@@ -31,6 +31,7 @@ DEFAULTS = {
     "engine": "grok",  # un motor por trabajo
     "batch_size": 20,
     "workers": 1,  # peticiones simultáneas (modo avanzado, para cuentas de pago)
+    "check_updates": True,  # avisar si hay una versión nueva (consulta a GitHub al abrir)
     "notify": True,  # avisar al terminar o fallar un trabajo largo
     # Claves y modelos por motor. Solo viven en este archivo local, cifradas.
     "engines": {"grok": {}, "gemini": {}, "microsoft": {}},

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.8
+
+- **Update notice**: on start the app asks GitHub for the latest Release and, if it is newer, shows a notice with a
+  "Download" button (it only opens the page; it installs nothing). It can be turned off ("Check for updates on
+  start") and there is a "Check for updates" button in "About". Failures are silent; nothing about you or your games
+  is sent (the request does reveal your IP to GitHub, like any web visit).
+
 ## 1.0.7
 
 - The translation-language field now says it can be typed, and shows the exact language name when the app finds

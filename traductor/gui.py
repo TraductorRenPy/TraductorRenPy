@@ -13,7 +13,7 @@ import webbrowser
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 from typing import Callable, Optional
 
-from . import __version__, about, eta, fonts, i18n, languages, notify, pipeline, report, sdk, settings, uitweaks, workflow
+from . import __version__, about, eta, fonts, i18n, languages, notify, pipeline, report, sdk, settings, uitweaks, updates, workflow
 from .common import Cancelled
 from .detect import GameInfo, analyze, find_game_root
 from .engines import ENGINES, EngineError
@@ -53,6 +53,7 @@ class App(tk.Tk):
         self.batch_var = tk.IntVar(value=cfg["batch_size"])
         self.workers_var = tk.IntVar(value=cfg["workers"])
         self.notify_var = tk.BooleanVar(value=cfg["notify"])
+        self.updates_var = tk.BooleanVar(value=cfg["check_updates"])
         self._shown_engine: Optional[str] = None
 
         self.info: Optional[GameInfo] = None
@@ -72,6 +73,8 @@ class App(tk.Tk):
         self.game_var.trace_add("write", lambda *a: self._schedule_refresh())
         self._after(100, self._pump)
         self._after(300, self._refresh_guide)
+        if cfg["check_updates"]:
+            self._after(1500, self._check_updates_async)
         if not sdk.find_renpy_exe(self.sdk_var.get().strip()):
             self._after(600, lambda: self.detect_sdk(silent=True))
 
@@ -94,8 +97,15 @@ class App(tk.Tk):
 
     def _build(self):
         pad = {"padx": 6, "pady": 3}
+        self.update_bar = ttk.Frame(self)  # aviso de versión nueva: se muestra solo si hay una
+        self.update_label = ttk.Label(self.update_bar, foreground="#0b57d0", font=("Segoe UI", 10, "bold"))
+        self.update_label.pack(side="left", padx=(10, 8), pady=4)
+        self.update_btn = ttk.Button(self.update_bar, text=tr("Descargar"))
+        self.update_btn.pack(side="left")
+        ttk.Button(self.update_bar, text=tr("Cerrar"), command=self.update_bar.pack_forget).pack(side="left", padx=6)
         cfg = ttk.LabelFrame(self, text=tr("Configuración"))
         cfg.pack(fill="x", padx=8, pady=(8, 4))
+        self._cfg_frame = cfg
         cfg.columnconfigure(1, weight=1)
         rows = [
             (tr("Carpeta del juego"), self.game_var, self._browse_game),
@@ -160,6 +170,9 @@ class App(tk.Tk):
         ).grid(row=2, column=2, columnspan=2, sticky="w", **pad)
         ttk.Checkbutton(eng, text=tr("Avisar al terminar"), variable=self.notify_var).grid(
             row=2, column=4, columnspan=2, sticky="w", **pad
+        )
+        ttk.Checkbutton(eng, text=tr("Buscar actualizaciones al abrir"), variable=self.updates_var).grid(
+            row=3, column=4, columnspan=2, sticky="w", **pad
         )
         self._load_engine_fields()
 
@@ -423,6 +436,34 @@ class App(tk.Tk):
         except OSError:
             messagebox.showinfo("TraductorRenPy", tr("No se pudo abrir el tutorial: {path}", path=path))
 
+    def _check_updates_async(self, manual: bool = False):
+        """Consulta la última versión en segundo plano; `manual` = lo pidió el usuario (siempre responde)."""
+        def work():
+            ok, info = updates.check()
+            self.events.put(("call", lambda: self._after_update_check(ok, info, manual)))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _after_update_check(self, ok: bool, info, manual: bool):
+        if info is not None:
+            self.update_label.configure(
+                text=tr("Hay una versión nueva: {new} (tienes la {cur}).", new=info.version, cur=__version__)
+            )
+            self.update_btn.configure(command=lambda: webbrowser.open(info.url))
+            if not self.update_bar.winfo_ismapped():
+                self.update_bar.pack(fill="x", padx=8, pady=(8, 0), before=self._cfg_frame)
+            if manual and messagebox.askyesno(
+                "TraductorRenPy",
+                tr("Hay una versión nueva ({new}). ¿Abrir la página de descarga?", new=info.version),
+            ):
+                webbrowser.open(info.url)
+        elif manual:
+            messagebox.showinfo(
+                "TraductorRenPy",
+                tr("Tienes la última versión ({cur}).", cur=__version__) if ok
+                else tr("No se pudo comprobar ahora (sin internet o GitHub no respondió). Inténtalo más tarde."),
+            )
+
     def open_about(self):
         win = tk.Toplevel(self)
         win.title(tr("Acerca de"))
@@ -451,6 +492,10 @@ class App(tk.Tk):
             ttk.Button(row, text=tr("Dar opinión"), command=self.open_feedback).pack(side="left", padx=4)
         if about.DONATE_URL:
             ttk.Button(row, text=tr("♥ Apoyar el proyecto"), command=self.open_donate).pack(side="left", padx=4)
+        if about.REPO_URL:
+            ttk.Button(
+                win, text=tr("Buscar actualizaciones"), command=lambda: self._check_updates_async(manual=True)
+            ).pack(pady=(2, 0))
         ttk.Button(win, text=tr("Cerrar"), command=win.destroy).pack(pady=(4, 16))
 
     def _set_window_icon(self):
@@ -785,6 +830,7 @@ class App(tk.Tk):
             "batch_size": self._batch_size(),
             "workers": self._workers(),
             "notify": bool(self.notify_var.get()),
+            "check_updates": bool(self.updates_var.get()),
             "engines": self.engines_cfg,
         })
 

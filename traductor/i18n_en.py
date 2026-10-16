@@ -101,6 +101,15 @@ EN = {
     "Se borrará la carpeta de trabajo de este juego:\n\n{path}\n\nIncluye la caché de traducciones, el glosario y los respaldos. No se puede deshacer. ¿Continuar?":
         "This game's work folder will be deleted:\n\n{path}\n\nIt includes the translation cache, the glossary and the backups. This cannot be undone. Continue?",
     "Carpeta de trabajo de este juego borrada.": "This game's work folder was deleted.",
+    "Buscar actualizaciones al abrir": "Check for updates on start",
+    "Buscar actualizaciones": "Check for updates",
+    "Descargar": "Download",
+    "Hay una versión nueva: {new} (tienes la {cur}).": "A new version is available: {new} (you have {cur}).",
+    "Hay una versión nueva ({new}). ¿Abrir la página de descarga?":
+        "A new version ({new}) is available. Open the download page?",
+    "Tienes la última versión ({cur}).": "You have the latest version ({cur}).",
+    "No se pudo comprobar ahora (sin internet o GitHub no respondió). Inténtalo más tarde.":
+        "Could not check now (no internet or GitHub did not answer). Try again later.",
     "Reportar un problema": "Report a problem",
     "Dar opinión": "Give feedback",
     "Describe qué pasó (opcional):": "Describe what happened (optional):",
