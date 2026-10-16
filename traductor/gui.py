@@ -510,6 +510,11 @@ class App(tk.Tk):
         ttk.Label(row, text=tr("Solo archivos que contengan (opcional):")).pack(side="left")
         ttk.Entry(row, textvariable=only_var, width=24).pack(side="left", padx=6)
         ttk.Button(row, text=tr("Notas del juego…"), command=self.open_notes).pack(side="right")
+        short_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            win, text=tr("Incluir también frases de una o dos palabras (casi nunca tienen error y son muchas)"),
+            variable=short_var,
+        ).pack(anchor="w", padx=14, pady=(4, 0))
         status = ttk.Label(win, text=tr("Calculando…"), foreground="#0b57d0", wraplength=660, justify="left")
         status.pack(anchor="w", padx=14, pady=8)
         if not engine_cls.can_review:
@@ -521,7 +526,8 @@ class App(tk.Tk):
         def refresh(*_):
             try:
                 st = pipeline.review_status(
-                    self.info, self.ws, self._snap["language"], only_var.get().strip(), self._snap["batch"]
+                    self.info, self.ws, self._snap["language"], only_var.get().strip(), self._snap["batch"],
+                    1 if short_var.get() else review.MIN_WORDS,
                 )
             except Exception as exc:
                 status.configure(text=str(exc))
@@ -533,6 +539,7 @@ class App(tk.Tk):
 
         win.after(150, refresh)
         only_var.trace_add("write", lambda *a: win.after(400, refresh))
+        short_var.trace_add("write", lambda *a: win.after(100, refresh))
 
         def start():
             st = getattr(self, "_review_stats", None)
@@ -547,8 +554,9 @@ class App(tk.Tk):
             ):
                 return
             only = only_var.get().strip()
+            min_words = 1 if short_var.get() else review.MIN_WORDS
             win.destroy()
-            self._run("Mejorar la traducción existente", lambda: self._act_review(only))
+            self._run("Mejorar la traducción existente", lambda: self._act_review(only, min_words))
 
         def show():
             path = self.ws.review_report_file
@@ -585,11 +593,12 @@ class App(tk.Tk):
         ttk.Button(bar, text=tr("Aplicar correcciones"), command=apply).pack(side="left", padx=4)
         ttk.Button(bar, text=tr("Cerrar"), command=win.destroy).pack(side="left", padx=4)
 
-    def _act_review(self, only: str):
+    def _act_review(self, only: str, min_words: int = review.MIN_WORDS):
         self._ensure_info()
         pipeline.review_translations(
             self.info, self.ws, self._snap["language"], self._snap["engine"], self.engines_cfg,
-            self._snap["batch"], only, self.log, self._set_progress, self.cancel,
+            self._snap["batch"], only, self.log, self._set_progress, self.cancel, workers=self._snap["workers"],
+            min_words=min_words,
         )
         self.log(tr("Listo. Abre «Mejorar traducción existente…» para ver los cambios y aplicarlos."))
 

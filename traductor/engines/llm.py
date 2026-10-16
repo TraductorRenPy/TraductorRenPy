@@ -25,7 +25,7 @@ REVIEW_PROMPT = """You are a senior video game localization editor. You review a
 Fix ONLY real problems:
 - wrong meaning: literal or word-for-word renderings, false friends, idioms and game/story jargon taken literally (for example "to pledge a fraternity" is to join it, not to "compromise" it);
 - unnatural or ungrammatical phrasing, wrong register, wrong gender or number agreement, names or terms that do not follow the glossary, untranslated English left behind.
-Keep the wording and style of the current translation whenever it is acceptable: do not rewrite for taste. If the current translation is fine, return it EXACTLY unchanged.
+Keep the wording and style of the current translation whenever it is acceptable: do not rewrite for taste. If the current translation is fine, leave that item OUT of your reply.
 
 Rules:
 - Use the scene ("context_before", "context_after", "speaker") to understand who speaks to whom and what is going on. Context lines are reference only: never return them.
@@ -35,7 +35,7 @@ Rules:
 - Do not add, merge, split or omit lines. Do not add notes or explanations.
 
 Input is a JSON object with "glossary", "context_before", "items" and "context_after". Each item has "id", "speaker" (may be null for narration), "text" (English original) and "current" (existing translation).
-Reply with ONLY a JSON object: {"translations": [{"id": "<id>", "text": "<final translation>"}, ...]} with exactly one entry per item id: the unchanged current translation or your corrected version."""
+Reply with ONLY a JSON object: {"translations": [{"id": "<id>", "text": "<corrected translation>"}, ...]} listing ONLY the items whose translation you corrected, each with its id and the corrected text. Do not list items that are fine. If every item is fine, reply {"translations": []}."""
 
 _NOTES_HEADER = (
     "\n\nNotes about this game, written by the person translating it. Use them for context, terminology and tone; "

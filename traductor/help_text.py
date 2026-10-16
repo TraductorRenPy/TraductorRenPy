@@ -105,7 +105,8 @@ literales, tiempos verbales...). El botón «Mejorar traducción existente…» 
 juego», y que la corrija solo si hay un error real. Nada se escribe en el juego hasta
 que pulses «Aplicar correcciones» (con copia de seguridad); antes puedes leer el
 informe con «Ver cambios». Lo revisado se guarda, así que puedes parar y seguir otro
-día. Es largo y gasta API: en un juego grande son miles de peticiones.
+día. La IA devuelve solo lo que corrige y se saltan las frases de 1-2 palabras (hay una
+casilla para incluirlas), así que son cientos de peticiones, no miles.
 
 NOTAS DEL JUEGO
 «Notas del juego…» te deja contar de qué trata el juego, el ambiente y el vocabulario
@@ -238,7 +239,8 @@ phrases, verb tenses...). The "Improve existing translation…" button asks the 
 and to fix it only if there is a real error. Nothing is written to the game until you
 press "Apply corrections" (with a backup); before that you can read the report with
 "View changes". What is reviewed is saved, so you can stop and continue another day.
-It is long and spends API: in a big game it is thousands of requests.
+The AI returns only what it corrects and phrases of 1-2 words are skipped (there is a
+checkbox to include them), so it is hundreds of requests, not thousands.
 
 GAME NOTES
 "Game notes…" lets you say what the game is about, the setting and the vocabulary

@@ -11,12 +11,14 @@ texto traducible.
 
 import hashlib
 import json
+import re
 import threading
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
-from .common import LogFn, ProgressFn, check_cancel, noop_log
+from .common import Cancelled, LogFn, ProgressFn, check_cancel, noop_log
 from .engines import BadResponse, Batch, Engine, EngineError, Item
 from .glossary import Glossary
 from .pending import (
@@ -24,7 +26,7 @@ from .pending import (
     has_translatable_text, is_say,
 )
 from .textutil import fix_newlines, fix_quotes
-from .translate import make_batches
+from .translate import MAX_WORKERS, make_batches
 from .validate import validate
 
 Pair = Tuple[str, str]  # (original inglés, traducción actual)
@@ -83,17 +85,27 @@ class ReviewUnit:
     after: List[Tuple[Optional[str], str]] = field(default_factory=list)
 
 
-def is_reviewable(e: TlEntry, only: str = "") -> bool:
+MIN_WORDS = 3  # por defecto no se revisan las frases de 1-2 palabras: casi nunca tienen error y son miles
+
+
+def word_count(text: str) -> int:
+    """Palabras del texto sin etiquetas {..} ni variables [..]."""
+    return len(re.findall(r"[^\W\d_]+", re.sub(r"\{[^}]*\}|\[[^\]]*\]", " ", text)))
+
+
+def is_reviewable(e: TlEntry, only: str = "", min_words: int = MIN_WORDS) -> bool:
     if e.status != TRANSLATED or Path(e.file).name.startswith("zz_"):
         return False  # los zz_* los escribió esta app, ya con contexto
     if only and only.lower() not in e.file.lower():
         return False
-    return e.translated != e.original and has_translatable_text(e.original)
+    if e.translated == e.original or not has_translatable_text(e.original):
+        return False
+    return word_count(e.original) >= min_words
 
 
 def build_units(
     report: TlReport, characters: Optional[Dict[str, str]] = None, only: str = "",
-    context_before: int = 3, context_after: int = 2,
+    context_before: int = 3, context_after: int = 2, min_words: int = MIN_WORDS,
 ) -> List[ReviewUnit]:
     """Líneas traducidas por revisar (una por pareja original/traducción), con la escena como contexto."""
     characters = characters or {}
@@ -104,7 +116,7 @@ def build_units(
     entries = report.entries
     units, seen = [], set()
     for idx, e in enumerate(entries):
-        if not is_reviewable(e, only) or (e.original, e.translated) in seen:
+        if not is_reviewable(e, only, min_words) or (e.original, e.translated) in seen:
             continue
         seen.add((e.original, e.translated))
         before, after = [], []
@@ -127,12 +139,15 @@ def build_units(
     return units
 
 
+_RESULT_LOCK = threading.Lock()  # el resultado lo actualizan varios hilos en modo simultáneo
+
+
 @dataclass
 class ReviewResult:
     reviewed: int = 0
     changed: int = 0
     rejected: int = 0
-    skipped: int = 0  # el motor no devolvió esa línea: queda sin revisar
+    skipped: int = 0  # (reservado) líneas que no se pudieron revisar
 
 
 def _to_batch(units: List[ReviewUnit], glossary: Glossary) -> Tuple[Batch, Dict[str, ReviewUnit]]:
@@ -166,7 +181,8 @@ def _review_batch(units, engine, glossary, cache, result, log) -> int:
     except BadResponse as exc:
         if len(units) == 1:
             log(f"  Sin respuesta útil para una línea ({exc}): {units[0].text[:60]}")
-            result.skipped += 1
+            with _RESULT_LOCK:
+                result.skipped += 1
             return 0
         half = len(units) // 2
         log(f"  Respuesta inválida ({exc}); se divide el lote de {len(units)} en dos.")
@@ -175,17 +191,16 @@ def _review_batch(units, engine, glossary, cache, result, log) -> int:
         )
     got = 0
     for item_id, unit in by_id.items():
-        if item_id not in out:
-            result.skipped += 1
-            continue
-        final, rejected = _decide(unit, out[item_id])
+        # El motor solo devuelve lo que corrige: lo que no aparece en su respuesta estaba bien.
+        final, rejected = _decide(unit, out[item_id]) if item_id in out else (unit.cur, "")
         cache.put(unit.text, unit.cur, final, engine.name, rejected)
-        result.reviewed += 1
+        with _RESULT_LOCK:
+            result.reviewed += 1
+            if rejected:
+                result.rejected += 1
+            elif final != unit.cur:
+                result.changed += 1
         got += 1
-        if rejected:
-            result.rejected += 1
-        elif final != unit.cur:
-            result.changed += 1
     return got
 
 
@@ -199,11 +214,17 @@ def run_review(
     progress: Optional[ProgressFn] = None,
     cancel: Optional[threading.Event] = None,
     max_consecutive_failures: int = 3,
+    workers: int = 1,
 ) -> ReviewResult:
     result = ReviewResult()
     todo = [u for u in units if cache.get(u.text, u.cur) is None]
     log(f"{len(units)} líneas por revisar: {len(units) - len(todo)} ya revisadas, {len(todo)} pendientes.")
     batches = make_batches(todo, batch_size)
+    workers = max(1, min(int(workers or 1), MAX_WORKERS))
+    if workers > 1 and len(batches) > 1:
+        log(f"Modo avanzado: hasta {workers} peticiones simultáneas.")
+        _run_parallel(batches, engine, glossary, cache, result, log, progress, cancel, workers, max_consecutive_failures)
+        return result
     failures = 0
     for n, batch in enumerate(batches, 1):
         check_cancel(cancel)
@@ -227,6 +248,57 @@ def run_review(
     if progress:
         progress(len(batches), len(batches))
     return result
+
+
+def _run_parallel(batches, engine, glossary, cache, result, log, progress, cancel, workers, max_failures) -> None:
+    """Varios lotes a la vez, con la misma lógica que el modo normal: un error definitivo o `max_failures` lotes
+    seguidos fallidos detienen el trabajo; al cancelar solo se esperan los lotes ya enviados. Todo se guarda."""
+    total, done, nxt, failures_in_row = len(batches), 0, 0, 0
+    running = {}
+    stop: Optional[EngineError] = None
+    cancelled = False
+    try:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            while True:
+                while stop is None and not cancelled and nxt < total and len(running) < workers:
+                    if cancel is not None and cancel.is_set():
+                        cancelled = True
+                        break
+                    units_b = batches[nxt]
+                    nxt += 1
+                    running[pool.submit(_review_batch, units_b, engine, glossary, cache, result, log)] = (nxt, units_b)
+                if not running:
+                    break
+                finished, _ = wait(list(running), timeout=0.5, return_when=FIRST_COMPLETED)
+                if cancel is not None and cancel.is_set():
+                    cancelled = True
+                for fut in finished:
+                    n, units_b = running.pop(fut)
+                    done += 1
+                    try:
+                        got = fut.result()
+                    except EngineError as exc:
+                        if exc.fatal:
+                            stop = stop or exc
+                            continue
+                        log(f"  Lote {n}/{total} falló: {exc}")
+                        failures_in_row += 1
+                        if failures_in_row >= max_failures and stop is None:
+                            stop = EngineError(f"{failures_in_row} lotes seguidos fallaron; se detiene el trabajo.")
+                        continue
+                    failures_in_row = 0
+                    cache.save()
+                    log(f"  Lote {n}/{total}: {got}/{len(units_b)} revisadas.")
+                    if progress:
+                        progress(done, total)
+    finally:
+        cache.save()
+    if stop is not None:
+        raise stop
+    if cancelled:
+        raise Cancelled()
+    if progress:
+        progress(total, total)
 
 
 def stats(units: List[ReviewUnit], cache: ReviewCache) -> Dict[str, int]:

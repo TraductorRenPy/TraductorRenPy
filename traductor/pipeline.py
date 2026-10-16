@@ -241,7 +241,7 @@ def generate_tl(
     before = len(scan_tl(tl_dir).entries)
     _backup_tl(tl_dir, ws, language, log)
 
-    result = sdk.run_translate(exe, project, language, log, cancel)
+    result = sdk.run_translate(exe, project, language, log, cancel, sandbox=ws.base / "_guardados_sdk")
     if result.traceback_text:
         log("El SDK reportó errores:\n" + result.traceback_text.strip()[-3000:])
         raise RuntimeError("El SDK terminó con errores (ver registro).")
@@ -352,18 +352,31 @@ def save_notes(ws: Workspace, text: str) -> None:
 
 # --- Mejorar una traducción existente ------------------------------------------------------------------
 
-def review_units(info: GameInfo, ws: Workspace, language: str, only: str = "") -> List[review.ReviewUnit]:
+REVIEW_BATCH_MAX = 100
+
+
+def review_batch_size(batch_size: int) -> int:
+    """La revisión devuelve solo lo que corrige (respuestas cortas), así que caben más líneas por petición."""
+    return max(1, min(REVIEW_BATCH_MAX, int(batch_size) * 2))
+
+
+def review_units(
+    info: GameInfo, ws: Workspace, language: str, only: str = "", min_words: int = review.MIN_WORDS
+) -> List[review.ReviewUnit]:
     tl_dir = tl_dir_of(sdk_project_root(info, ws), language)
     if not tl_dir.is_dir():
         return []
-    return review.build_units(scan_tl(tl_dir), find_characters(script_dirs(info, ws)), only)
+    return review.build_units(scan_tl(tl_dir), find_characters(script_dirs(info, ws)), only, min_words=min_words)
 
 
-def review_status(info: GameInfo, ws: Workspace, language: str, only: str = "", batch_size: int = 20) -> dict:
+def review_status(
+    info: GameInfo, ws: Workspace, language: str, only: str = "", batch_size: int = 20,
+    min_words: int = review.MIN_WORDS,
+) -> dict:
     """Cuántas líneas hay por revisar, cuántas ya se revisaron y cuántas peticiones haría falta enviar."""
-    units = review_units(info, ws, language, only)
+    units = review_units(info, ws, language, only, min_words)
     st = review.stats(units, review.ReviewCache(ws.review_cache_file))
-    st["requests"] = -(-st["pending"] // max(1, batch_size))
+    st["requests"] = -(-st["pending"] // review_batch_size(batch_size))
     return st
 
 
@@ -378,6 +391,8 @@ def review_translations(
     log: LogFn = noop_log,
     progress: Optional[ProgressFn] = None,
     cancel: Optional[threading.Event] = None,
+    workers: int = 1,
+    min_words: int = review.MIN_WORDS,
 ):
     """Pide al motor revisar la traducción existente, con contexto de escena y las notas del juego.
     Guarda los resultados (revision.json) y un informe legible (revision.txt); NO toca el juego."""
@@ -385,7 +400,7 @@ def review_translations(
     if not engine.can_review:
         raise EngineError(f"{engine.label} no sabe revisar traducciones; usa Gemini o Grok.", fatal=True)
     engine.notes = load_notes(ws)
-    units = review_units(info, ws, language, only)
+    units = review_units(info, ws, language, only, min_words)
     if not units:
         log("No hay líneas traducidas por revisar.")
         return review.ReviewResult()
@@ -394,7 +409,9 @@ def review_translations(
     log(f"Motor: {engine.label}. Glosario: {len(glossary.terms)} términos."
         + (" Con notas del juego." if engine.notes else ""))
     try:
-        result = review.run_review(units, engine, glossary, cache, batch_size, log, progress, cancel)
+        result = review.run_review(
+            units, engine, glossary, cache, review_batch_size(batch_size), log, progress, cancel, workers=workers
+        )
     finally:
         cache.save()
         install.write_text_file(ws.review_report_file, review.report_text(units, cache))

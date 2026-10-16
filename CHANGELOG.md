@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.1.0
+
+- **Fix (data loss)**: the app launched the Ren'Py SDK against the game with the game's own save folder
+  (`%APPDATA%/RenPy/<save_directory>`). With games made with an old Ren'Py (Python 2, e.g. 7.x) the SDK (Python 3)
+  rewrote the persistent data (preferences, gallery, seen text) in a format the game cannot read, so the game lost
+  them. The SDK now runs with an isolated save folder inside the work folder and never touches the game's data.
+  Saved games (`.save`) were never affected.
+
+- "Improve existing translation" now honors the **Simultaneous requests** setting (it ran one batch at a time
+  before, ignoring it). Same safeguards as translating: a fatal error or repeated failures stop the job, Cancel only
+  waits for batches already sent, and everything reviewed is saved.
+- **Faster, cheaper review**: the AI now returns only the lines it corrects (short answers), so each request carries
+  twice the lines per batch (up to 100). Lines it does not list count as correct and are remembered. On a 40,000-line
+  game this goes from about 1,020 requests to about 370.
+- Phrases of one or two words are skipped by default (they almost never have errors); a checkbox includes them.
+
 ## 1.0.9
 
 - **Improve existing translation** (new button): asks Gemini or Grok to review every line of an already translated

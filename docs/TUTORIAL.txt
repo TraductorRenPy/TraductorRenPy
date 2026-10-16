@@ -53,7 +53,9 @@ donde ibas.
 1. Revisar el juego: detecta la carpeta, los scripts .rpy/.rpyc y los archivos .rpa.
 2. Extraer los scripts: si estan dentro de un .rpa, los saca a una copia de trabajo.
 3. Decompilar: convierte los .rpyc en texto legible con unrpyc (ya viene incluido; el campo es opcional).
-4. Crear la lista de textos: usa el Ren'Py SDK para generar game/tl/<idioma>/ con todos los textos.
+4. Crear la lista de textos: usa el Ren'Py SDK para generar game/tl/<idioma>/ con todos los textos. El SDK se
+   ejecuta con una carpeta de guardados aislada (dentro de la carpeta de trabajo), asi que no toca tus datos
+   persistentes ni tus partidas.
 5. Buscar textos sin marcar: encuentra textos que el juego muestra sin marcarlos para traducir
    (entradas de texto, botones, avisos...) y los agrega en zz_extra_strings.rpy.
 6. Usar una traduccion anterior: aprovecha una traduccion existente (tuya o un parche de otra persona)
@@ -76,7 +78,8 @@ donde ibas.
 - Lineas por lote (por defecto 20): cuantos textos se envian en cada peticion. Mas lineas = menos peticiones
   (ayuda con los limites diarios), pero mas riesgo de respuestas defectuosas; si ocurre, la app divide el lote
   y reintenta. No se puede cambiar a mitad de una traduccion: pulsa Cancelar, cambia el numero y continua.
-- Peticiones simultaneas (modo avanzado): envia varios lotes a la vez. Pensado para cuentas de PAGO. Con el
+- Peticiones simultaneas (modo avanzado): envia varios lotes a la vez (al traducir y tambien al mejorar una
+  traduccion existente). Pensado para cuentas de PAGO. Con el
   nivel gratuito dejalo en 1: el limite por minuto del servicio casi no deja ganar velocidad. Hasta 8.
   Si el servicio pide esperar, todas las peticiones esperan juntas.
 - Avisar al terminar: si un trabajo dura mas de 30 segundos, suena, parpadea el boton de la barra de tareas
@@ -196,7 +199,10 @@ Muchas traducciones de comunidad se hicieron sin contexto (por ejemplo, "pledgin
   trabajo: archivo y linea, original, antes y despues) y, si te convence, pulsa "Aplicar correcciones": hace copia
   de seguridad y verifica que no cambie ningun identificador. Cierra el juego antes.
 - Lo revisado se guarda (revision.json): puedes parar y seguir otro dia, y las cuotas diarias no hacen perder nada.
-- Cuesta tiempo y API: en un juego con 40.000 lineas son unas 1.300 peticiones con lotes de 30.
+- Revision rapida: la IA devuelve solo las lineas que corrige (lo que no lista se da por correcto y se recuerda),
+  asi que caben el doble de lineas por peticion (hasta 100). Las frases de una o dos palabras se saltan por
+  defecto; la casilla "Incluir tambien frases de una o dos palabras" las incluye.
+- Cuesta tiempo y API: en un juego con 40.000 lineas son unas 370 peticiones con lotes de 50.
 - "Solo archivos que contengan" limita la revision a ciertos archivos (por ejemplo "script" o "episode3").
 - "Notas del juego..." (tambien en la ventana principal): cuenta de que trata el juego, el ambiente y el vocabulario
   (por ejemplo "pledge = ingresar a una fraternidad"). Se usan al traducir y al revisar, y mejoran mucho el resultado.

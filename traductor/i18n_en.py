@@ -139,6 +139,8 @@ EN = {
         "{engine} cannot review translations: choose Gemini or Grok as the engine.",
     "{total} líneas traducidas por revisar · {reviewed} ya revisadas · {changed} con cambios sugeridos · unas {requests} peticiones pendientes.":
         "{total} translated lines to review · {reviewed} already reviewed · {changed} with suggested changes · about {requests} requests left.",
+    "Incluir también frases de una o dos palabras (casi nunca tienen error y son muchas)":
+        "Also include phrases of one or two words (they almost never have errors and there are many)",
     "Reportar un problema": "Report a problem",
     "Dar opinión": "Give feedback",
     "Describe qué pasó (opcional):": "Describe what happened (optional):",

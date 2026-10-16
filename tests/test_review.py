@@ -5,11 +5,12 @@ from types import SimpleNamespace
 from unittest import mock
 
 from traductor import languages, pipeline, review
+from traductor.common import Cancelled
 from traductor.engines import BadResponse, Batch, Engine, EngineError, Item
 from traductor.engines import llm
 from traductor.engines.microsoft import MicrosoftEngine
 from traductor.glossary import Glossary
-from traductor.pending import scan_tl
+from traductor.pending import TlReport, parse_tl_text, scan_tl
 
 TL = '''# game/script.rpy:1
 translate Spanish ep1_a_11111111:
@@ -66,10 +67,7 @@ class FakeReviewer(Engine):
                 out[it.id] = "¿Estás pensando en unirte a nuestra fraternidad?"
             elif "Wow" in it.text:
                 out[it.id] = "¡Guau!"  # pierde las etiquetas {i}: debe descartarse
-            elif "honest" in it.text:
-                continue  # no devuelve esa línea
-            else:
-                out[it.id] = it.current  # estaba bien
+            # lo demás estaba bien: el motor solo devuelve lo que corrige
         return out
 
 
@@ -85,7 +83,7 @@ class ReviewTests(unittest.TestCase):
         self.report = scan_tl(self.tl)
 
     def units(self):
-        return review.build_units(self.report, {"mg": "Magnar", "mc": "Perseo"})
+        return review.build_units(self.report, {"mg": "Magnar", "mc": "Perseo"}, min_words=1)
 
     def test_only_existing_translations_are_reviewed(self):
         texts = [u.text for u in self.units()]
@@ -104,7 +102,7 @@ class ReviewTests(unittest.TestCase):
         engine = FakeReviewer()
         cache = review.ReviewCache(self.dir / "revision.json")
         result = review.run_review(self.units(), engine, Glossary([]), cache, batch_size=20)
-        self.assertEqual((result.reviewed, result.changed, result.rejected, result.skipped), (3, 1, 1, 1))
+        self.assertEqual((result.reviewed, result.changed, result.rejected, result.skipped), (4, 1, 1, 0))
         changed = cache.changed()
         self.assertEqual(
             changed,
@@ -115,15 +113,14 @@ class ReviewTests(unittest.TestCase):
         )
         self.assertIn("Wow", [r["src"] for r in cache.items.values() if r.get("rejected")][0])
         stats = review.stats(self.units(), cache)
-        self.assertEqual((stats["total"], stats["reviewed"], stats["changed"], stats["rejected"]), (4, 3, 1, 1))
+        self.assertEqual((stats["total"], stats["reviewed"], stats["changed"], stats["rejected"]), (4, 4, 1, 1))
 
     def test_reviewed_lines_are_not_sent_again(self):
         cache = review.ReviewCache(self.dir / "revision.json")
         review.run_review(self.units(), FakeReviewer(), Glossary([]), cache)
         again = FakeReviewer()
         review.run_review(self.units(), again, Glossary([]), review.ReviewCache(self.dir / "revision.json"))
-        sent = [i.text for b in again.batches for i in b.items]
-        self.assertEqual(sent, ["I don't know, to be honest."])  # solo la que no devolvió el motor
+        self.assertEqual(again.batches, [])  # todo estaba revisado: no se envía nada otra vez
 
     def test_an_english_answer_is_rejected(self):
         unit = review.ReviewUnit("Hello there", "Hola", None)
@@ -153,7 +150,31 @@ class ReviewTests(unittest.TestCase):
 
         cache = review.ReviewCache(self.dir / "revision.json")
         result = review.run_review(self.units(), Picky(), Glossary([]), cache, batch_size=20)
-        self.assertEqual(result.reviewed, 3)
+        self.assertEqual(result.reviewed, 4)
+
+    def test_lines_the_engine_does_not_list_count_as_correct_and_are_remembered(self):
+        cache = review.ReviewCache(self.dir / "revision.json")
+        unit = review.ReviewUnit("Hello there friend", "Hola amigo", None)
+        result = review.run_review([unit], FakeReviewer(), Glossary([]), cache)  # el motor no devuelve nada
+        self.assertEqual((result.reviewed, result.changed), (1, 0))
+        self.assertEqual(cache.get("Hello there friend", "Hola amigo")["new"], "Hola amigo")
+        self.assertEqual(cache.changed(), {})
+
+    def test_short_phrases_are_skipped_unless_asked_for(self):
+        report = TlReport(
+            Path("."),
+            parse_tl_text(
+                "translate Spanish ep1_a_11111111:\n\n    # mc \"Yes.\"\n    mc \"Sí.\"\n\n"
+                "translate Spanish ep1_b_22222222:\n\n    # mc \"Not really, no.\"\n    mc \"No realmente, no.\"\n\n"
+                "translate Spanish ep1_c_33333333:\n\n    # mc \"{i}Wow{/i} [name]!\"\n    mc \"{i}Guau{/i} [name]!\"\n",
+                "script.rpy",
+                "Spanish",
+            ),
+        )
+        default = [u.text for u in review.build_units(report)]
+        self.assertEqual(default, ["Not really, no."])  # «Yes.» (1 palabra) y «Wow» (1) quedan fuera
+        self.assertEqual(len(review.build_units(report, min_words=1)), 3)
+        self.assertEqual(review.word_count("{i}Hello{/i} [name], how are you?"), 4)
 
     def test_apply_replaces_only_the_matching_translation_and_keeps_ids_and_comments(self):
         pair = ("Are you thinking of pledging our friendly fraternity?",
@@ -185,6 +206,93 @@ class ReviewTests(unittest.TestCase):
         self.assertIn("AHORA: ¿Estás pensando en unirte a nuestra fraternidad?", text)
         self.assertIn("script.rpy", text)
         self.assertIn("Respuestas descartadas", text)
+
+
+class SlowReviewer(Engine):
+    name = "slow"
+    label = "Lento"
+    can_review = True
+
+    def __init__(self, fatal_on=0, delay=0.05):
+        self.cfg = {}
+        self.delay = delay
+        self.fatal_on = fatal_on
+        self.calls = 0
+        self.active = 0
+        self.max_active = 0
+        self._lock = __import__("threading").Lock()
+
+    def review(self, batch):
+        import time
+
+        with self._lock:
+            self.calls += 1
+            n = self.calls
+            self.active += 1
+            self.max_active = max(self.max_active, self.active)
+        try:
+            time.sleep(self.delay)
+            if self.fatal_on and n == self.fatal_on:
+                raise EngineError("Se agotó la cuota diaria del servicio.", fatal=True)
+            return {i.id: i.current + "!" for i in batch.items}  # «corrige» todas
+        finally:
+            with self._lock:
+                self.active -= 1
+
+
+class ParallelReviewTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.cache_path = Path(self.tmp.name) / "revision.json"
+
+    def units(self, n):
+        return [review.ReviewUnit(f"Line {i}", f"Línea {i}", None) for i in range(n)]
+
+    def test_several_batches_at_once_review_everything(self):
+        engine = SlowReviewer()
+        cache = review.ReviewCache(self.cache_path)
+        result = review.run_review(self.units(40), engine, Glossary([]), cache, batch_size=2, workers=4)
+        self.assertEqual((result.reviewed, result.changed), (40, 40))
+        self.assertGreater(engine.max_active, 1)
+        self.assertLessEqual(engine.max_active, 4)
+        self.assertEqual(len(review.ReviewCache(self.cache_path).items), 40)  # también en disco
+
+    def test_a_single_worker_stays_sequential(self):
+        engine = SlowReviewer(delay=0)
+        review.run_review(self.units(10), engine, Glossary([]), review.ReviewCache(self.cache_path), 2, workers=1)
+        self.assertEqual(engine.max_active, 1)
+
+    def test_fatal_error_stops_the_parallel_review_and_keeps_what_was_done(self):
+        engine = SlowReviewer(fatal_on=4)
+        with self.assertRaises(EngineError) as ctx:
+            review.run_review(self.units(60), engine, Glossary([]), review.ReviewCache(self.cache_path), 2, workers=3)
+        self.assertTrue(ctx.exception.fatal)
+        self.assertLess(engine.calls, 30)
+        self.assertGreater(len(review.ReviewCache(self.cache_path).items), 0)
+
+    def test_cancel_in_parallel_waits_only_for_sent_batches(self):
+        import threading
+
+        engine = SlowReviewer(delay=0.05)
+        cancel = threading.Event()
+        threading.Timer(0.12, cancel.set).start()
+        with self.assertRaises(Cancelled):
+            review.run_review(self.units(200), engine, Glossary([]), review.ReviewCache(self.cache_path), 2,
+                              cancel=cancel, workers=3)
+        self.assertLess(engine.calls, 50)
+        self.assertEqual(engine.active, 0)
+        self.assertGreater(len(review.ReviewCache(self.cache_path).items), 0)
+
+    def test_the_pipeline_passes_the_workers_setting(self):
+        with mock.patch.object(review, "run_review", return_value=review.ReviewResult()) as run, \
+                mock.patch.object(pipeline, "review_units", return_value=[review.ReviewUnit("a", "b", None)]), \
+                mock.patch.object(pipeline, "create_engine", return_value=FakeReviewer()), \
+                mock.patch.object(pipeline, "suggest_glossary", return_value=Glossary([])):
+            ws = pipeline.Workspace(Path(self.tmp.name) / "ws")
+            ws.base.mkdir()
+            pipeline.review_translations(SimpleNamespace(), ws, "Spanish", "gemini", {}, 30, workers=2)
+        self.assertEqual(run.call_args.kwargs["workers"], 2)
 
 
 class PipelineReviewTests(unittest.TestCase):
@@ -234,7 +342,12 @@ class PipelineReviewTests(unittest.TestCase):
 
     def test_status_counts_lines_and_requests(self):
         st = pipeline.review_status(self.info, self.ws, "Spanish", batch_size=2)
-        self.assertEqual((st["total"], st["pending"], st["requests"]), (4, 4, 2))
+        self.assertEqual((st["total"], st["pending"]), (2, 2))  # «Wow» y «Description» (1 palabra) no entran
+        self.assertEqual(st["requests"], 1)  # al revisar los lotes son del doble: caben en 1 petición
+        self.assertEqual(pipeline.review_batch_size(30), 60)
+        self.assertEqual(pipeline.review_batch_size(80), pipeline.REVIEW_BATCH_MAX)
+        st_all = pipeline.review_status(self.info, self.ws, "Spanish", batch_size=1, min_words=1)
+        self.assertEqual((st_all["total"], st_all["requests"]), (4, 2))
 
     def test_notes_are_trimmed_and_removed_when_empty(self):
         pipeline.save_notes(self.ws, "  hola  ")

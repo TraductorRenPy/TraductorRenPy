@@ -53,3 +53,45 @@ class SdkDetectTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SandboxTests(unittest.TestCase):
+    def test_isolated_env_points_every_save_location_at_the_sandbox(self):
+        import os
+        import tempfile
+
+        from traductor import sdk
+
+        with tempfile.TemporaryDirectory() as d:
+            env = sdk.isolated_env(Path(d) / "guardados")
+            for key in ("APPDATA", "HOME", "XDG_DATA_HOME"):
+                self.assertEqual(env[key], str(Path(d) / "guardados"))
+            self.assertTrue((Path(d) / "guardados").is_dir())
+            self.assertEqual(env.get("PATH"), os.environ.get("PATH"))  # lo demás del entorno se conserva
+
+    def test_run_translate_launches_the_sdk_with_the_sandbox(self):
+        import tempfile
+        from unittest import mock
+
+        from traductor import sdk
+
+        class FakeProc:
+            stdout = iter(())
+            returncode = 0
+
+            def wait(self, timeout=None):
+                return 0
+
+            def poll(self):
+                return 0
+
+            def kill(self):
+                pass
+
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(sdk.subprocess, "Popen", return_value=FakeProc()) as popen:
+            try:
+                sdk.run_translate(Path("renpy.exe"), Path(d) / "juego", "Spanish", sandbox=Path(d) / "box")
+            except Exception:
+                pass  # solo interesa cómo se lanzó
+        env = popen.call_args.kwargs["env"]
+        self.assertEqual(env["APPDATA"], str(Path(d) / "box"))

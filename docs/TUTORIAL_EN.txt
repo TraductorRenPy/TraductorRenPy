@@ -54,7 +54,8 @@ were.
 1. Review the game: detects the folder, the .rpy/.rpyc scripts and the .rpa archives.
 2. Extract the scripts: if they are inside an .rpa, it takes them out to a working copy.
 3. Decompile: turns .rpyc files into readable text with unrpyc (already included; the field is optional).
-4. Create the text list: uses the Ren'Py SDK to generate game/tl/<language>/ with all the texts.
+4. Create the text list: uses the Ren'Py SDK to generate game/tl/<language>/ with all the texts. The SDK runs with an
+   isolated save folder (inside the work folder), so it does not touch your persistent data or your saved games.
 5. Find unmarked texts: finds texts the game shows without marking them for translation (text inputs,
    buttons, notifications...) and adds them to zz_extra_strings.rpy.
 6. Use an earlier translation: reuses an existing translation (yours or another person's patch) by identifier
@@ -77,7 +78,8 @@ were.
 - Lines per batch (default 20): how many texts go in each request. More lines = fewer requests (helps with
   daily limits) but a higher risk of defective answers; if that happens, the app splits the batch and retries.
   It cannot be changed in the middle of a translation: press Cancel, change the number and continue.
-- Simultaneous requests (advanced mode): sends several batches at once. Meant for PAID accounts. On the free
+- Simultaneous requests (advanced mode): sends several batches at once (when translating and also when improving an
+  existing translation). Meant for PAID accounts. On the free
   tier leave it at 1: the service's per-minute limit leaves almost no room to go faster. Up to 8.
   If the service asks to wait, all requests wait together.
 - Notify when done: if a job lasts more than 30 seconds, it beeps, the taskbar button flashes and a window
@@ -196,7 +198,10 @@ Many community translations were made without context (for example "pledging our
   folder: file and line, original, before and after) and, if you agree, press "Apply corrections": it makes a
   backup and verifies that no identifier changes. Close the game first.
 - What is reviewed is saved (revision.json): you can stop and continue another day, and daily quotas lose nothing.
-- It costs time and API: in a game with 40,000 lines it is about 1,300 requests with batches of 30.
+- Fast review: the AI returns only the lines it corrects (what it does not list is taken as correct and remembered),
+  so twice the lines fit in each request (up to 100). Phrases of one or two words are skipped by default; the
+  "Also include phrases of one or two words" checkbox includes them.
+- It costs time and API: in a game with 40,000 lines it is about 370 requests with batches of 50.
 - "Only files containing" limits the review to some files (for example "script" or "episode3").
 - "Game notes..." (also in the main window): say what the game is about, the setting and the vocabulary (for
   example "pledge = to join a fraternity"). They are used when translating and reviewing, and improve the result a lot.

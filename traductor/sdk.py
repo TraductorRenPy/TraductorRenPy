@@ -114,6 +114,22 @@ def autodetect(roots: Optional[Iterable[Path]] = None, extra_env: bool = True) -
     return sorted(found, key=_version_key, reverse=True)
 
 
+def isolated_env(sandbox: Path) -> dict:
+    """Entorno con las carpetas de guardado de Ren'Py apuntando a `sandbox`.
+
+    Ren'Py guarda los datos persistentes del juego (preferencias, galería, lo ya visto) en
+    %APPDATA%/RenPy/<save_directory>, y esa carpeta es la MISMA para el juego real. Si el SDK (Python 3) la escribe, un
+    juego hecho con un Ren'Py antiguo (Python 2, p. ej. 7.x) ya no puede leerla y pierde esos datos. Con este entorno el
+    SDK escribe solo dentro de `sandbox`."""
+    sandbox = Path(sandbox)
+    sandbox.mkdir(parents=True, exist_ok=True)
+    env = dict(os.environ)
+    env["APPDATA"] = str(sandbox)
+    env["HOME"] = str(sandbox)
+    env["XDG_DATA_HOME"] = str(sandbox)
+    return env
+
+
 def run_translate(
     renpy_exe: Path,
     project_root: Path,
@@ -121,12 +137,14 @@ def run_translate(
     log: LogFn = noop_log,
     cancel: Optional[threading.Event] = None,
     timeout: float = 900,
+    sandbox: Optional[Path] = None,
 ) -> SdkResult:
     cmd = [str(renpy_exe), str(project_root), "translate", language]
     log("$ " + " ".join(f'"{c}"' if " " in c else c for c in cmd))
     flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     proc = subprocess.Popen(
         cmd,
+        env=isolated_env(sandbox) if sandbox is not None else None,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         stdin=subprocess.DEVNULL,
