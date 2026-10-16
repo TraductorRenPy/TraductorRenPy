@@ -136,10 +136,12 @@ def scan_dirs(dirs: Iterable[Path], characters: Iterable[str] = ()) -> List[Foun
     return list(seen.values())
 
 
-def existing_olds(tl_dir: Path) -> Set[str]:
-    """Todos los `old "..."` ya presentes en los .rpy del tl."""
+def existing_olds(tl_dir: Path, skip: Optional[str] = None) -> Set[str]:
+    """Todos los `old "..."` ya presentes en los .rpy del tl (menos el archivo `skip`, si se da)."""
     olds: Set[str] = set()
     for path in tl_dir.rglob("*.rpy"):
+        if skip and path.name == skip:
+            continue
         in_strings = False
         for line in path.read_text(encoding="utf-8-sig", errors="replace").splitlines():
             m = RE_TRANSLATE.match(line)

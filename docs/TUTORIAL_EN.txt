@@ -166,6 +166,10 @@ exists but is empty (this really happens in some games).
 - Typical case: phone messages, character sheets and other texts the game builds from code. Ren'Py does not
   mark them for translation, which is why many translations leave them in the original language. The "Find
   unmarked texts" step finds them and adds them to zz_extra_strings.rpy so they can be translated.
+- Texts the game shows with "[variable]" (for example a character sheet's description): Ren'Py translates the
+  screen's text but not the variable's content. When installing, the application creates game/zz_dynamic_text.rpy
+  (a hook that translates each fragment right before drawing it) and, in tl/<language>/zz_dynamic_strings.rpy, the
+  version without the edge line breaks of those texts. Delete those files to remove them.
 - Try a copy of the game first if the existing translation has an unusual structure.
 
 

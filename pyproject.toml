@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "traductorrenpy"
-version = "1.0.8"
+version = "1.0.9"
 description = "Translate Ren'Py visual novels into other languages with one button."
 readme = "README.md"
 requires-python = ">=3.9"

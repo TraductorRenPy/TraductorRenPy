@@ -433,5 +433,77 @@ class ExistingTranslationIsRespectedTests(unittest.TestCase):
         self.assertEqual(result.glossary_fixed, 2)
 
 
+class DynamicTextTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.dir = Path(self.tmp.name)
+        self.tl = self.dir / "tl" / "Spanish"
+        self.tl.mkdir(parents=True)
+
+    def extra(self, body):
+        (self.tl / "zz_extra_strings.rpy").write_text("translate Spanish strings:\n\n" + body, encoding="utf-8")
+
+    def test_edge_variants_copy_the_translation_without_the_edge_breaks(self):
+        from traductor import dynamic
+
+        self.extra(
+            '    old "Dad gave me money.\\n\\n"\n    new "Papá me dio dinero.\\n\\n"\n\n'
+            '    old "\\nNot translated yet.\\n"\n    new "\\nNot translated yet.\\n"\n\n'
+            '    old "No edges."\n    new "Sin bordes."\n'
+        )
+        self.assertEqual(dynamic.write_edge_variants(self.tl, "Spanish"), 1)
+        text = (self.tl / dynamic.VARIANTS_FILE).read_text(encoding="utf-8-sig")
+        self.assertIn("translate Spanish strings:", text)
+        self.assertIn('old "Dad gave me money."\n    new "Papá me dio dinero."', text)
+        self.assertNotIn("Not translated yet", text)  # sin traducir: no se copia
+        self.assertEqual(dynamic.write_edge_variants(self.tl, "Spanish"), 1)  # repetirlo no duplica
+        self.assertEqual((self.tl / dynamic.VARIANTS_FILE).read_text(encoding="utf-8-sig").count("Dad gave"), 1)
+
+    def test_variants_never_repeat_an_old_that_already_exists_elsewhere(self):
+        from traductor import dynamic
+
+        self.extra('    old "Saved.\\n"\n    new "Guardado.\\n"\n')
+        (self.tl / "otro.rpy").write_text(
+            'translate Spanish strings:\n\n    old "Saved."\n    new "Guardado"\n', encoding="utf-8"
+        )
+        self.assertEqual(dynamic.write_edge_variants(self.tl, "Spanish"), 0)  # Ren'Py falla si un old se repite
+        self.assertFalse((self.tl / dynamic.VARIANTS_FILE).exists())
+
+    def test_stale_variants_file_is_removed_when_not_needed(self):
+        from traductor import dynamic
+
+        (self.tl / dynamic.VARIANTS_FILE).write_text("viejo", encoding="utf-8")
+        self.extra('    old "Plain."\n    new "Simple."\n')
+        self.assertEqual(dynamic.write_edge_variants(self.tl, "Spanish"), 0)
+        self.assertFalse((self.tl / dynamic.VARIANTS_FILE).exists())
+
+    def test_hook_file_is_written_once_and_behaves_as_documented(self):
+        from types import SimpleNamespace
+
+        from traductor import dynamic
+
+        game = self.dir / "game"
+        game.mkdir()
+        path = dynamic.write_hook(game, self.dir / "respaldos")
+        self.assertEqual(path.read_text(encoding="utf-8-sig"), dynamic.HOOK_CONTENT)
+        stamp = path.stat().st_mtime_ns
+        dynamic.write_hook(game, self.dir / "respaldos")
+        self.assertEqual(path.stat().st_mtime_ns, stamp)  # igual: no se reescribe
+        # el cuerpo es Python válido y hace lo que dice: traduce lo que coincide y respeta una función anterior
+        body = dynamic.HOOK_CONTENT.split("init 999 python:\n", 1)[1]
+        body = "\n".join(line[4:] if line.startswith("    ") else line for line in body.splitlines())
+        table = {"Hello": "Hola"}
+        namespace = {
+            "config": SimpleNamespace(replace_text=lambda s: s.replace("!", "")),
+            "renpy": SimpleNamespace(translate_string=lambda s: table.get(s, s)),
+        }
+        exec(body, namespace)
+        hook = namespace["config"].replace_text
+        self.assertEqual(hook("Hello"), "Hola")
+        self.assertEqual(hook("Hello!"), "Hola")  # primero la función que ya había
+        self.assertEqual(hook("Other"), "Other")  # sin coincidencia no cambia nada
+
+
 if __name__ == "__main__":
     unittest.main()

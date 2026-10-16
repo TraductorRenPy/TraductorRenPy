@@ -88,7 +88,9 @@ Escribe el idioma con el mismo nombre que usa esa traducción: en Ren'Py
 «Spanish» y «spanish» son idiomas distintos. La app respeta lo ya traducido
 (solo corrige el título del juego) y traduce lo que falta: p. ej. mensajes del
 celular o fichas de personajes que el juego arma por código y la traducción
-original no cubría.
+original no cubría. Los que el juego muestra con «[variable]» (p. ej. la descripción
+de una ficha) se traducen con game/zz_dynamic_text.rpy, que la app crea sola; se
+quita borrando ese archivo.
 
 QUÉ TOCA LA APP EN TU JUEGO
 • Escribe la traducción en game/tl/<idioma>/ y crea game/zz_<idioma>.rpy.
@@ -207,7 +209,9 @@ Type the language with the same name that translation uses: in Ren'Py
 "Spanish" and "spanish" are different languages. The app respects what is already
 translated (it only corrects the game title) and translates what is missing: e.g.
 phone messages or character sheets that the game builds from code and the original
-translation did not cover.
+translation did not cover. Those the game shows with "[variable]" (e.g. a sheet's
+description) are translated by game/zz_dynamic_text.rpy, which the app creates by
+itself; delete that file to remove it.
 
 WHAT THE APP TOUCHES IN YOUR GAME
 • It writes the translation into game/tl/<language>/ and creates game/zz_<language>.rpy.

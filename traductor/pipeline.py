@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from . import credit as credit_mod
+from . import dynamic
 from . import decompile, extras, importer, install, rpa, sdk
 from .common import LogFn, ProgressFn, check_cancel, noop_log
 from .detect import GameInfo, source_key
@@ -459,6 +460,10 @@ def install_translations(info: GameInfo, ws: Workspace, language: str, log: LogF
         log("Crédito: «Acerca de» aún no está traducido o ya lo tenía; no se cambió.")
     if result.changes:
         install.write_changes(result, tl_dir, ws.backups, f"tl_{language}_antes_de_instalar", log)
+    # Textos que el juego muestra con «[variable]»: variantes sin saltos de borde (antes de copiar el tl al juego).
+    variants = dynamic.write_edge_variants(tl_dir, language)
+    if variants:
+        log(f"Añadidas {variants} variantes de textos dinámicos (zz_dynamic_strings.rpy).")
     remaining = len(scan_tl(tl_dir).pending)
 
     real_tl = tl_dir_of(info.root, language)
@@ -473,6 +478,8 @@ def install_translations(info: GameInfo, ws: Workspace, language: str, log: LogF
         if stale.exists():
             stale.unlink()
     install.write_language_file(info.game_dir, language, ws.backups, log)
+    if (tl_dir / extras.EXTRA_FILE).is_file():
+        dynamic.write_hook(info.game_dir, ws.backups, log)  # traduce lo que el juego arma con «[variable]»
     _write_report(ws, result, remaining, log, dry_run=False)
     return result, remaining
 

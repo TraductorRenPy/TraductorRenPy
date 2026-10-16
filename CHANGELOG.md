@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.9
+
+- Texts that a game shows through `"[variable]"` (character sheet descriptions, histories...) were never translated:
+  Ren'Py translates the screen's text, not the variable's content. On install the app now creates
+  `game/zz_dynamic_text.rpy` (a `config.replace_text` hook that translates each text fragment right before drawing
+  it) and `tl/<language>/zz_dynamic_strings.rpy` (the same translations without the edge line breaks, which the hook
+  could not match). No extra API cost. Tested in Ren'Py: `[variable]` texts now show translated.
+
 ## 1.0.8
 
 - **Update notice**: on start the app asks GitHub for the latest Release and, if it is newer, shows a notice with a

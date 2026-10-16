@@ -165,6 +165,11 @@ pero esta vacia (pasa de verdad en algunos juegos).
 - Caso tipico: mensajes del celular, fichas de personajes y otros textos que el juego arma por codigo. Ren'Py
   no los marca para traducir, y por eso muchas traducciones los dejan en el idioma original. El paso
   "Buscar textos sin marcar" los encuentra y los agrega a zz_extra_strings.rpy para traducirlos.
+- Textos que el juego muestra con "[variable]" (por ejemplo la descripcion de una ficha de personaje): Ren'Py
+  traduce el texto de la pantalla pero no el contenido de la variable. Al instalar, la aplicacion crea
+  game/zz_dynamic_text.rpy (un gancho que traduce cada fragmento justo antes de dibujarlo) y, en
+  tl/<idioma>/zz_dynamic_strings.rpy, la version sin saltos de linea de los bordes de esos textos. Para quitarlo,
+  borra esos archivos.
 - Prueba primero con una copia del juego si la traduccion existente tiene una estructura poco comun.
 
 
