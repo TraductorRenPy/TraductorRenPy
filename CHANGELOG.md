@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.4
+
+- **License**: from this version the program is free to use but all rights are reserved, and the source code is no
+  longer published. This repository now holds only the downloads (Releases), the documentation, issues and
+  discussions. Versions 1.0.0 to 1.1.3 were published under the MIT License and stay under it for anyone who
+  already has them. There are no functional changes.
+
 ## 1.1.3
 
 - **Fix**: the translation credit was not added to games whose "About" text is empty (the Ren'Py template leaves
