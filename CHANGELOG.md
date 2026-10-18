@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.5
+
+- New optional button **"Download my translation…"**: saves a .zip with only the translation installed in the game
+  (`game/tl/<language>` plus the app's small `zz_*.rpy` files), without the game, to share with friends or a
+  community. It includes `LEEME_PARCHE.txt` with the install steps. Nothing is sent anywhere. Updated Help and
+  tutorials.
+
 ## 1.1.4
 
 - **License**: from this version the program is free to use but all rights are reserved, and the source code is no
