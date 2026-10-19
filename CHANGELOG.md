@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.6
+
+- **Fix (false antivirus alerts)**: seven antivirus engines (all but one share the same Bitdefender signature)
+  flagged the program as a generic "stealer". The cause was how the API keys were encrypted: a direct call to the
+  Windows `CryptProtectData`/`CryptUnprotectData` functions, which is also what password stealers use. The keys are
+  still encrypted with the same Windows DPAPI (same scope, same entropy), now through PowerShell's .NET
+  `ProtectedData`, so keys saved by older versions are still read and the format did not change. A scan of this
+  build shows no detections. Starting the app and saving settings take about half a second longer.
+
 ## 1.1.5
 
 - New optional button **"Download my translation…"**: saves a .zip with only the translation installed in the game
